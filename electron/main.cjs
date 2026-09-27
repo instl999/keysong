@@ -8,7 +8,7 @@ const { pathToFileURL } = require('node:url');
 app.commandLine.appendSwitch('lang', 'en-US');
 
 protocol.registerSchemesAsPrivileged([{
-  scheme: 'cadence-media',
+  scheme: 'keysong-media',
   privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true },
 }]);
 
@@ -36,7 +36,7 @@ const MUSIC_FILE_RE = /\.(mp3|wav|m4a|aac|ogg|opus|flac|webm|mid|midi)$/i;
 const RESOURCE_GUIDES = [
   {
     name: 'Import Instructions.txt',
-    content: `Cadence Music Import Instructions
+    content: `Keysong Music Import Instructions
 
 1. Copy the "Sample Song" folder and rename it to the real song title.
 2. Add synchronized stems from the same Ultimate Vocal Remover run:
@@ -45,7 +45,7 @@ const RESOURCE_GUIDES = [
    Song Name_(Instrumental).wav
 
 3. Do not trim or time-stretch only one stem. Both files must share the same start point and duration.
-4. Cadence refreshes automatically. WAV or high-quality MP3 is recommended.
+4. Keysong refreshes automatically. WAV or high-quality MP3 is recommended.
 5. Use only music you own or are authorized to process.
 `,
   },
@@ -60,12 +60,12 @@ function musicResourceParent() {
 }
 
 function musicResourceRoot() {
-  if (process.env.CADENCE_MUSIC_ROOT) return path.resolve(process.env.CADENCE_MUSIC_ROOT);
+  if (process.env.KEYSONG_MUSIC_ROOT) return path.resolve(process.env.KEYSONG_MUSIC_ROOT);
   return path.join(musicResourceParent(), MUSIC_RESOURCE_NAME);
 }
 
 async function migrateLegacyMusicResourceRoot(root) {
-  if (process.env.CADENCE_MUSIC_ROOT) return;
+  if (process.env.KEYSONG_MUSIC_ROOT) return;
   const legacyRoot = path.join(musicResourceParent(), LEGACY_MUSIC_RESOURCE_NAME);
   try {
     await fsp.access(legacyRoot);
@@ -130,7 +130,7 @@ async function ensureMusicResourceRoot() {
 function mediaUrl(filePath, into = mediaFiles) {
   const token = crypto.createHash('sha256').update(filePath).digest('hex').slice(0, 32);
   into.set(token, filePath);
-  return `cadence-media://file/${token}`;
+  return `keysong-media://file/${token}`;
 }
 
 function isInsideMusicRoot(filePath) {
@@ -198,7 +198,7 @@ async function safeScanMusicResource() {
 
 function installMediaProtocol() {
   if (mediaProtocolInstalled) return;
-  protocol.handle('cadence-media', async (request) => {
+  protocol.handle('keysong-media', async (request) => {
     const url = new URL(request.url);
     const token = url.hostname === 'file' ? url.pathname.slice(1) : '';
     const filePath = mediaFiles.get(token);
@@ -223,7 +223,7 @@ function installMediaProtocol() {
 
 function publishMusicResource(payload) {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('cadence:music-resource-change', payload);
+    mainWindow.webContents.send('keysong:music-resource-change', payload);
   }
 }
 
@@ -274,7 +274,7 @@ function publishState(extra = {}) {
     ...extra,
   };
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('cadence:monitoring-state', state);
+    mainWindow.webContents.send('keysong:monitoring-state', state);
   }
   return state;
 }
@@ -314,7 +314,7 @@ if (uIOhook) {
 
     // Privacy boundary: raw key codes, modifiers, and native events stay in the main process.
     // The renderer receives only the four structural categories required by the music engine.
-    mainWindow.webContents.send('cadence:key', { kind });
+    mainWindow.webContents.send('keysong:key', { kind });
   });
 }
 
@@ -327,7 +327,7 @@ function createWindow() {
     backgroundColor: '#0b0d0c',
     show: false,
     autoHideMenuBar: true,
-    title: 'Cadence',
+    title: 'Keysong',
     titleBarStyle: 'hidden',
     titleBarOverlay: {
       color: '#0b0d0c',
@@ -343,7 +343,7 @@ function createWindow() {
     },
   });
 
-  const devUrl = process.env.CADENCE_DEV_URL;
+  const devUrl = process.env.KEYSONG_DEV_URL;
   if (devUrl) mainWindow.loadURL(devUrl);
   else mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
 
@@ -364,10 +364,10 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
-ipcMain.handle('cadence:get-state', () => publishState());
-ipcMain.handle('cadence:set-enabled', (_event, enabled) => setMonitoring(enabled));
-ipcMain.handle('cadence:get-music-resource', () => safeScanMusicResource());
-ipcMain.handle('cadence:open-music-resource', async () => {
+ipcMain.handle('keysong:get-state', () => publishState());
+ipcMain.handle('keysong:set-enabled', (_event, enabled) => setMonitoring(enabled));
+ipcMain.handle('keysong:get-music-resource', () => safeScanMusicResource());
+ipcMain.handle('keysong:open-music-resource', async () => {
   try {
     const root = await ensureMusicResourceRoot();
     const error = await shell.openPath(root);

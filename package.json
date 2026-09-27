@@ -1,10 +1,10 @@
 {
-  "name": "cadence",
+  "name": "keysong",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "main": "electron/main.cjs",
   "type": "module",
-  "description": "Typing-driven classical piano. Your rhythm, Chopin's notes.",
+  "description": "Type anywhere and the song sings with you: keystrokes reveal synchronized music stems.",
   "engines": {
     "node": ">=22.12"
   },
@@ -31,8 +31,8 @@
     "vite": "^7.0.0"
   },
   "build": {
-    "appId": "com.cadence.desktop",
-    "productName": "Cadence",
+    "appId": "com.keysong.desktop",
+    "productName": "Keysong",
     "electronDist": "node_modules/electron/dist",
     "electronLanguages": [
       "en-US"
@@ -52,7 +52,7 @@
     ],
     "win": {
       "target": "portable",
-      "artifactName": "Cadence-${version}-Windows.${ext}"
+      "artifactName": "Keysong-${version}-Windows.${ext}"
     },
     "nsis": {
       "installerLanguages": [

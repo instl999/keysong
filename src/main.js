@@ -48,7 +48,7 @@ const el = {
 };
 
 const KEY_KINDS = new Set(['char', 'back', 'enter', 'space']);
-const desktop = window.cadenceDesktop ?? null;
+const desktop = window.keysongDesktop ?? null;
 
 if (desktop?.isDesktop) document.body.classList.add('desktop');
 el.platformLabel.textContent = desktop?.isDesktop ? 'Windows-wide input' : 'Current-window preview';
@@ -80,9 +80,9 @@ let loadedItemId = null;
 let currentEngine = null;
 let queue = [];
 let stemStartOffset = 0;
-let orderMode = localStorage.getItem('cadence:order') === 'shuffle' ? 'shuffle' : 'sequence';
-let stemMode = MODES[localStorage.getItem('cadence:stemMode')] ? localStorage.getItem('cadence:stemMode') : 'vocal';
-let refRate = Number(localStorage.getItem('cadence:refRate')) || 3.2;
+let orderMode = localStorage.getItem('keysong:order') === 'shuffle' ? 'shuffle' : 'sequence';
+let stemMode = MODES[localStorage.getItem('keysong:stemMode')] ? localStorage.getItem('keysong:stemMode') : 'vocal';
+let refRate = Number(localStorage.getItem('keysong:refRate')) || 3.2;
 let toastTimer = null;
 let unduckTimer = null;
 let lastRateTune = 0;
@@ -241,7 +241,7 @@ function updatePowerUi() {
     el.statusText.textContent = isPlaying ? 'Live' : 'Listening';
     el.powerHeadline.textContent = isPlaying ? 'Type anywhere' : 'Music paused';
     el.powerHint.textContent = isPlaying
-      ? 'Cadence follows your rhythm in the background'
+      ? 'Keysong follows your rhythm in the background'
       : 'Keyboard monitoring remains enabled';
     el.powerLabel.textContent = 'Disable';
   } else {
@@ -334,7 +334,7 @@ function followStemMode(roles) {
 
 function applyStemMode(mode) {
   stemMode = mode;
-  localStorage.setItem('cadence:stemMode', mode);
+  localStorage.setItem('keysong:stemMode', mode);
   if (mixer) mixer.setMode(mode);
   renderMixer();
 }
@@ -738,7 +738,7 @@ el.next.addEventListener('click', () => nextTrack({ autoplay: isPlaying }).catch
 el.order.addEventListener('click', () => {
   orderMode = orderMode === 'sequence' ? 'shuffle' : 'sequence';
   shuffleDeck = [];
-  localStorage.setItem('cadence:order', orderMode);
+  localStorage.setItem('keysong:order', orderMode);
   renderOrder();
   showToast(orderMode === 'shuffle' ? 'Shuffle playback enabled' : 'Sequence playback enabled');
 });
@@ -860,7 +860,7 @@ setInterval(() => {
       const next = refRate * 0.82 + target * 0.18;
       // The smoothing converges but never settles exactly, so persist only on a
       // change actually worth a synchronous disk write.
-      if (Math.abs(next - refRate) > 0.05) localStorage.setItem('cadence:refRate', next.toFixed(2));
+      if (Math.abs(next - refRate) > 0.05) localStorage.setItem('keysong:refRate', next.toFixed(2));
       refRate = next;
       if (mixer) mixer.setRefRate(refRate);
     }
@@ -930,7 +930,7 @@ if (desktop?.isDesktop) {
 }
 
 if (import.meta.env.DEV) {
-  window.__cadence = {
+  window.__keysong = {
     piano, sensor, arranger, player, library, Tone,
     get enabled() { return enabled; },
     get isPlaying() { return isPlaying; },

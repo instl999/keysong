@@ -1,4 +1,4 @@
-# Cadence Development and Release Guide (English)
+# Keysong Development and Release Guide (English)
 
 [Home](../README.md) | [User Guide](user-guide.en.md)
 
@@ -51,7 +51,7 @@ tests/                Unit tests for the pure logic, run by the Node test runner
 Music Resources/
   Sample Song/        User example copied beside release builds
 public/midi/           Maintained or generated built-in resources
-docs/                  Chinese and English documentation
+docs/                  English documentation
 ```
 
 Do not commit these directories:
@@ -79,7 +79,7 @@ They can contain large generated artifacts or copyrighted user music. Everything
 - Ensuring that `Music Resources` exists beside the executable.
 - Scanning the fixed “one song folder, then files” layout.
 - Watching changes with `fs.watch` and a debounce.
-- Registering opaque, hashed `cadence-media://` URLs so absolute paths are not exposed to the renderer.
+- Registering opaque, hashed `keysong-media://` URLs so absolute paths are not exposed to the renderer.
 - Opening the resource directory through Electron `shell.openPath`.
 
 ### Preload Security Boundary
@@ -119,13 +119,13 @@ Any feature that changes this boundary is a security- and privacy-sensitive chan
 - Development: `Music Resources` under the project root.
 - Windows portable build: `PORTABLE_EXECUTABLE_DIR/Music Resources`.
 - Other packaged layouts: `Music Resources` beside `process.execPath`.
-- Tests may isolate the root with `CADENCE_MUSIC_ROOT`.
+- Tests may isolate the root with `KEYSONG_MUSIC_ROOT`.
 
 ### Scan and Security Rules
 
 - Only direct child directories of `Music Resources` are scanned; each is one song container.
 - Only allow-listed extensions are read.
-- Absolute file paths are never returned over IPC. The main process creates hashed tokens and `cadence-media://file/<token>` URLs.
+- Absolute file paths are never returned over IPC. The main process creates hashed tokens and `keysong-media://file/<token>` URLs.
 - The protocol handler revalidates that every resolved file remains under the music root.
 
 ### Stem Recognition
@@ -156,7 +156,7 @@ final output = background stems × background coefficient
 
 A mode in `gate.js` names only the stems that typing reveals. Everything else the track carries becomes background automatically, so a two-stem UVR pair and a four-stem Demucs split both work without enumerating combinations.
 
-`availableModes(roles)` returns every mode a stem set supports, and drives two things: whether `library.js` treats the set as a typing entry at all, and which buttons the picker shows. A set that supports no mode—a lone stem with nothing to reveal against—falls back to normal audio. The listener's choice is stored in `cadence:stemMode` and reused on any track that can honour it.
+`availableModes(roles)` returns every mode a stem set supports, and drives two things: whether `library.js` treats the set as a typing entry at all, and which buttons the picker shows. A set that supports no mode—a lone stem with nothing to reveal against—falls back to normal audio. The listener's choice is stored in `keysong:stemMode` and reused on any track that can honour it.
 
 `ANCHOR_ROLE` is the stem that holds a constant level regardless of typing, so the track always keeps a foundation. It defaults to `bass` and is exempt from the background duck. It is gated only when it is itself the stem the listener chose to reveal.
 
@@ -176,7 +176,7 @@ Primary output:
 
 ```text
 release/
-  Cadence-<version>-Windows.exe
+  Keysong-<version>-Windows.exe
   Music Resources/
     Sample Song/
 ```
@@ -231,7 +231,7 @@ after any change to `src/shared/stem-roles.js`.
 - Adding a real UVR pair automatically creates one stem playlist entry.
 - The entry decodes and supports play, pause, and next.
 - With Enable active, typing in another normal-permission app drives the music.
-- Disable stops the response, and app exit leaves no Cadence process behind.
+- Disable stops the response, and app exit leaves no Keysong process behind.
 - Sequence/shuffle, direct playlist selection, and offline synth fallback work.
 
 ### Security Regression

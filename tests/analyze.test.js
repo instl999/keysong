@@ -151,7 +151,7 @@ test('the density gate never returns an empty score', () => {
 });
 
 test('a score dense enough to break argument spreading still parses',
-  { skip: process.env.CADENCE_SLOW_TESTS ? false : 'slow: set CADENCE_SLOW_TESTS=1 (builds a 130k-note fixture)' },
+  { skip: process.env.KEYSONG_SLOW_TESTS ? false : 'slow: set KEYSONG_SLOW_TESTS=1 (builds a 130k-note fixture)' },
   () => {
   // Math.max(...notes) throws RangeError past roughly 125k arguments. A large
   // orchestral or transcribed score reaches that, and used to fail on import.

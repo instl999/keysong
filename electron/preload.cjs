@@ -2,27 +2,27 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 const validKinds = new Set(['char', 'back', 'enter', 'space']);
 
-contextBridge.exposeInMainWorld('cadenceDesktop', {
+contextBridge.exposeInMainWorld('keysongDesktop', {
   isDesktop: true,
-  getState: () => ipcRenderer.invoke('cadence:get-state'),
-  setEnabled: (enabled) => ipcRenderer.invoke('cadence:set-enabled', Boolean(enabled)),
-  getMusicResource: () => ipcRenderer.invoke('cadence:get-music-resource'),
-  openMusicResource: () => ipcRenderer.invoke('cadence:open-music-resource'),
+  getState: () => ipcRenderer.invoke('keysong:get-state'),
+  setEnabled: (enabled) => ipcRenderer.invoke('keysong:set-enabled', Boolean(enabled)),
+  getMusicResource: () => ipcRenderer.invoke('keysong:get-music-resource'),
+  openMusicResource: () => ipcRenderer.invoke('keysong:open-music-resource'),
   onKey: (callback) => {
     const listener = (_event, payload) => {
       if (payload && validKinds.has(payload.kind)) callback({ kind: payload.kind });
     };
-    ipcRenderer.on('cadence:key', listener);
-    return () => ipcRenderer.removeListener('cadence:key', listener);
+    ipcRenderer.on('keysong:key', listener);
+    return () => ipcRenderer.removeListener('keysong:key', listener);
   },
   onState: (callback) => {
     const listener = (_event, state) => callback(state);
-    ipcRenderer.on('cadence:monitoring-state', listener);
-    return () => ipcRenderer.removeListener('cadence:monitoring-state', listener);
+    ipcRenderer.on('keysong:monitoring-state', listener);
+    return () => ipcRenderer.removeListener('keysong:monitoring-state', listener);
   },
   onMusicResourceChange: (callback) => {
     const listener = (_event, payload) => callback(payload);
-    ipcRenderer.on('cadence:music-resource-change', listener);
-    return () => ipcRenderer.removeListener('cadence:music-resource-change', listener);
+    ipcRenderer.on('keysong:music-resource-change', listener);
+    return () => ipcRenderer.removeListener('keysong:music-resource-change', listener);
   },
 });

@@ -1,6 +1,6 @@
-# Cadence
+# Keysong
 
-Cadence turns keyboard activity into music. It is a local Windows 11 desktop app that responds to typing across applications and uses input timing to reveal synchronized music stems.
+Keysong turns keyboard activity into music. It is a local Windows 11 desktop app that responds to typing across applications and uses input timing to reveal synchronized music stems.
 
 [User Guide](docs/user-guide.en.md) | [Development Guide](docs/development.en.md) | [Release Notes](docs/release-notes-v0.1.0.md)
 
@@ -19,20 +19,20 @@ Cadence turns keyboard activity into music. It is a local Windows 11 desktop app
 Keep the executable and resource folder side by side:
 
 ```text
-Cadence-0.1.0-Windows.exe
+Keysong-0.2.0-Windows.exe
 Music Resources/
 └─ Sample Song/
    ├─ Sample Song_(Vocals).wav
    └─ Sample Song_(Instrumental).wav
 ```
 
-Run Cadence, select a track, choose **Enable**, and start typing in any application. See the [User Guide](docs/user-guide.en.md) for complete UVR separation and import instructions.
+Run Keysong, select a track, choose **Enable**, and start typing in any application. See the [User Guide](docs/user-guide.en.md) for complete UVR separation and import instructions.
 
 ## Privacy Summary
 
-The global keyboard hook must receive operating-system keyboard events to detect activity, but Cadence does not persist typed characters, reconstructed text, clipboard content, or key history. Pausing playback does **not** disable monitoring. Choose **Disable** or exit Cadence when monitoring should stop.
+The global keyboard hook must receive operating-system keyboard events to detect activity, but Keysong does not persist typed characters, reconstructed text, clipboard content, or key history. Pausing playback does **not** disable monitoring. Choose **Disable** or exit Keysong when monitoring should stop.
 
-Imported music is read locally and is not uploaded. The sampled piano may make a one-time CDN request through `smplr`; Cadence falls back to a local synthesizer when offline.
+Imported music is read locally and is not uploaded. The sampled piano may make a one-time CDN request through `smplr`; Keysong falls back to a local synthesizer when offline.
 
 ## Music Resources
 
@@ -51,7 +51,7 @@ Recognized formats:
 .mp3 .wav .m4a .aac .ogg .opus .flac .webm .mid .midi
 ```
 
-Cadence recognizes common English stem labels such as `Vocals`, `Instrumental`, `No Vocals`, `Drums`, `Bass`, and `Other`. Legacy non-English labels remain compatible internally through escaped matching rules, without exposing non-English interface text.
+Keysong recognizes common English stem labels such as `Vocals`, `Instrumental`, `No Vocals`, `Drums`, `Bass`, and `Other`. Legacy non-English labels remain compatible internally through escaped matching rules, without exposing non-English interface text.
 
 ## Development
 

@@ -2,8 +2,9 @@ import { get, set, del } from 'idb-keyval';
 import { roleFromMarker, roleFromFileName, ROLE_SUFFIX_RE } from '../shared/stem-roles.js';
 import { availableModes } from '../engine/gate.js';
 
-const DIR_KEY = 'cadence:music-dir';
-const LEGACY_DIR_KEY = 'cadence:midi-dir';
+const DIR_KEY = 'keysong:music-dir';
+// Keys written before the rename from Cadence, newest first.
+const LEGACY_DIR_KEYS = ['cadence:music-dir', 'cadence:midi-dir'];
 const MIDI_RE = /\.midi?$/i;
 const AUDIO_RE = /\.(mp3|wav|m4a|aac|ogg|opus|flac|webm)$/i;
 
@@ -125,9 +126,9 @@ export class Library {
 
   async pickFolder() {
     if (!this.supportsFolder) throw new Error('Folder access is unavailable in this environment; drop files instead');
-    const handle = await window.showDirectoryPicker({ id: 'cadence-music', mode: 'read' });
+    const handle = await window.showDirectoryPicker({ id: 'keysong-music', mode: 'read' });
     await set(DIR_KEY, handle);
-    await del(LEGACY_DIR_KEY).catch(() => {});
+    await this._forgetLegacyKeys();
     this.dirHandle = handle;
     this.needsPermission = false;
     const count = await this.scanFolder();
@@ -137,8 +138,11 @@ export class Library {
 
   async restoreFolder() {
     if (!this.supportsFolder) return;
-    const handle = await get(DIR_KEY).catch(() => null)
-      || await get(LEGACY_DIR_KEY).catch(() => null);
+    let handle = null;
+    for (const key of [DIR_KEY, ...LEGACY_DIR_KEYS]) {
+      handle = await get(key).catch(() => null);
+      if (handle) break;
+    }
     if (!handle) return;
     const perm = await handle.queryPermission({ mode: 'read' });
     this.dirHandle = handle;
@@ -312,9 +316,13 @@ export class Library {
     return additions.length;
   }
 
+  async _forgetLegacyKeys() {
+    await Promise.all(LEGACY_DIR_KEYS.map((key) => del(key).catch(() => {})));
+  }
+
   async forgetFolder() {
     await del(DIR_KEY);
-    await del(LEGACY_DIR_KEY).catch(() => {});
+    await this._forgetLegacyKeys();
     this.dirHandle = null;
     this.needsPermission = false;
     this._revokeSource('folder');
