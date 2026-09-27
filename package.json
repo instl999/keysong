@@ -5,9 +5,12 @@
   "main": "electron/main.cjs",
   "type": "module",
   "description": "Typing-driven classical piano. Your rhythm, Chopin's notes.",
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "midi": "node scripts/build-midi.mjs",
-    "test": "node --test tests/",
+    "test": "node --test \"tests/*.test.js\"",
     "dev": "npm run midi && vite",
     "build": "npm run midi && vite build",
     "build:release": "node scripts/build-midi.mjs --no-local && vite build",

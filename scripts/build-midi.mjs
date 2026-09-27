@@ -20,7 +20,12 @@ if (!includeLocalMedia) {
   ));
 }
 
-const files = (await readdir(join(here, 'scores')))
+// Built-in transcriptions are optional. The repository does not ship any, and
+// a fresh clone must still be able to run dev, build, and package.
+const files = (await readdir(join(here, 'scores')).catch((error) => {
+  if (error.code === 'ENOENT') return [];
+  throw error;
+}))
   .filter((f) => f.endsWith('.mjs') && !f.startsWith('_'))
   .sort();
 
