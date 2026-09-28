@@ -1,5 +1,7 @@
 # Keysong
 
+English | [简体中文](README.zh-CN.md)
+
 *Your keys sing the song.* Keysong lets anyone play along with the music they love, with no instrument experience needed. Separate a song into stems, and the part you choose, usually the vocals, only sounds while you type. Keep typing and the song sings. Stop and it waits for you.
 
 It is a local Windows 11 desktop app that responds to typing in any application, so writing an email or code performs the song in the background. You can also play it deliberately, tapping along on the beat.
