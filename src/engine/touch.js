@@ -7,7 +7,13 @@
  *
  * A synthesized transient avoids media dependencies, keeps latency predictable,
  * and stays harmonically neutral.
+ *
+ * Identical clicks in quick succession read as a machine gun rather than as
+ * touch, so every hit draws a different slice of noise and varies its pitch
+ * and level slightly, the way no two real key presses sound the same.
  */
+const NOISE_SECONDS = 0.5;
+
 export class Touch {
   constructor(ctx) {
     this.ctx = ctx;
@@ -19,35 +25,41 @@ export class Touch {
   }
 
   _makeNoise() {
-    const n = Math.floor(this.ctx.sampleRate * 0.08);
+    const n = Math.floor(this.ctx.sampleRate * NOISE_SECONDS);
     const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
     const d = buf.getChannelData(0);
     for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1);
     return buf;
   }
 
-  /** @param accent Use a stronger response for Space or Enter. */
-  hit(accent = false) {
+  /**
+   * @param accent Use a stronger response for Space or Enter.
+   * @param inTime The key landed on the song's beat: answer a little brighter.
+   */
+  hit({ accent = false, inTime = false } = {}) {
     const ctx = this.ctx;
     const t = ctx.currentTime + 0.002;   // Use the native clock without look-ahead.
     if (t - this._last < 0.02) return;   // Rate-limit extreme bursts.
     this._last = t;
 
+    const vary = (spread) => 1 + (Math.random() * 2 - 1) * spread;
     const dur = accent ? 0.055 : 0.03;
     const src = ctx.createBufferSource();
     src.buffer = this._noise;
 
     const bp = ctx.createBiquadFilter();
     bp.type = 'bandpass';
-    bp.frequency.value = accent ? 320 : 1400;
+    bp.frequency.value = (accent ? 320 : 1400) * (inTime ? 1.25 : 1) * vary(0.12);
     bp.Q.value = accent ? 1.2 : 2.4;
 
     const g = ctx.createGain();
+    const peak = (accent ? 1 : 0.55) * (inTime ? 1.3 : 1) * vary(0.15);
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(accent ? 1 : 0.55, t + 0.003);
+    g.gain.linearRampToValueAtTime(peak, t + 0.003);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
 
     src.connect(bp); bp.connect(g); g.connect(this.out);
-    src.start(t); src.stop(t + dur + 0.02);
+    const offset = Math.random() * (NOISE_SECONDS - dur - 0.03);
+    src.start(t, offset); src.stop(t + dur + 0.02);
   }
 }

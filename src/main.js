@@ -9,8 +9,11 @@ import { Backing } from './engine/backing.js';
 import { Soloist } from './engine/soloist.js';
 import { detectKeyAsync, toAnalysisSamples, ANALYSIS_RATE } from './engine/keydetect.js';
 import { StemDeck } from './engine/stemdeck.js';
-import { Mixer, MODES, ANCHOR_ROLE, availableModes } from './engine/gate.js';
+import { Mixer, MODES, ANCHOR_ROLE, availableModes, foregroundRoles } from './engine/gate.js';
 import { Touch } from './engine/touch.js';
+import { analyzeStems } from './engine/track-analysis.js';
+import { Take, BestTakes, CUE_LEAD } from './engine/take.js';
+import { SongMap } from './ui/song-map.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -30,11 +33,17 @@ const el = {
   npTitle: $('npTitle'),
   npComposer: $('npComposer'),
   sourceTag: $('sourceTag'),
+  rail: $('rail'),
   trackProgress: $('trackProgress'),
   trackTime: $('trackTime'),
   trackDuration: $('trackDuration'),
   stRate: $('stRate'),
+  scoreRead: $('scoreRead'),
+  scoreLabel: $('scoreLabel'),
+  scoreValue: $('scoreValue'),
+  scoreBest: $('scoreBest'),
   pulseOrb: $('pulseOrb'),
+  beatRing: $('beatRing'),
   pulseScope: $('pulseScope'),
   bars: $('bars'),
   mixer: $('mixer'),
@@ -93,6 +102,20 @@ let pendingMusicResource = null;
 let powerTransition = false;
 let shuffleDeck = [];
 
+// Performance feedback for stem tracks. The analysis arrives shortly after a
+// track starts playing; until it does, the stems simply follow typing.
+const songMap = new SongMap($('songMap'));
+const bestTakes = new BestTakes(localStorage);
+const analysisCache = new Map();   // item id -> analysis, so replays start instantly
+let analysis = null;               // Presence lanes and beat grid for the loaded track.
+let analysisToken = 0;             // Discards analysis that finishes after a track change.
+let take = null;                   // The current play-through of the revealed stem.
+let takeBest = null;               // The best earlier take on the same track and stem.
+let frameRequest = 0;
+let lastMapDraw = 0;
+let lastBeatIndex = -1;
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
 // Lightweight visual feedback.
 const barEls = [];
 for (let i = 0; i < 24; i++) {
@@ -113,11 +136,11 @@ for (let i = 0; i < 23; i++) {
 let scopeCursor = 0;
 let scopeOrder = scopeEls.length;
 
-function showToast(message) {
+function showToast(message, duration = 2600) {
   clearTimeout(toastTimer);
   el.toast.textContent = message;
   el.toast.classList.add('show');
-  toastTimer = setTimeout(() => el.toast.classList.remove('show'), 2600);
+  toastTimer = setTimeout(() => el.toast.classList.remove('show'), duration);
 }
 
 function formatTime(seconds) {
@@ -126,15 +149,44 @@ function formatTime(seconds) {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 }
 
-function setSourceTag(text) {
-  if (text === lastSourceTag) return;
+/** @param state Styling for the stem feedback states: 'on', 'cue', or 'break'. */
+function setSourceTag(text, state = '') {
+  if (text === lastSourceTag && el.sourceTag.dataset.state === state) return;
   lastSourceTag = text;
   el.sourceTag.textContent = text;
+  el.sourceTag.dataset.state = state;
+}
+
+function setHint(text) {
+  if (el.npComposer.textContent !== text) el.npComposer.textContent = text;
 }
 
 let orbAnimations = null;
 
-function animateInput(kind) {
+/** The ring around the orb breathes on each beat of the song. */
+function pulseBeat(period) {
+  el.beatRing.animate(reducedMotion.matches
+    ? [{ opacity: 0.35 }, { opacity: 0 }]
+    : [{ opacity: 0.45, transform: 'scale(.94)' }, { opacity: 0, transform: 'scale(1.12)' }],
+  { duration: Math.min(420, period * 800), easing: 'ease-out' });
+}
+
+/** A keystroke that lands on the beat lights the ring gold. */
+function flashInTime() {
+  el.beatRing.animate(reducedMotion.matches
+    ? [{ opacity: 0.9 }, { opacity: 0 }]
+    : [
+      { opacity: 0.95, transform: 'scale(1)', boxShadow: '0 0 14px rgba(231, 189, 79, .55)' },
+      { opacity: 0, transform: 'scale(1.3)', boxShadow: '0 0 0 rgba(231, 189, 79, 0)' },
+    ],
+  { duration: 380, easing: 'cubic-bezier(.2, .7, .3, 1)' });
+}
+
+/**
+ * @param inTime With a beat grid, whether the key landed on the beat; null
+ *   when there is no grid to judge against.
+ */
+function animateInput(kind, inTime = null) {
   // Restarting the keyframes through the animation API avoids the classic
   // remove-class / read-offsetWidth / add-class trick, which forces a
   // synchronous layout on every single key. The lookup itself flushes pending
@@ -147,13 +199,17 @@ function animateInput(kind) {
     animation.currentTime = 0;
     animation.play();
   }
+  if (inTime) flashInTime();
 
+  // With a beat grid, gold marks the keys that landed on the beat and the
+  // rest turn neutral. Without one, every key is gold.
   const weight = kind === 'enter' || kind === 'space' ? 1 : kind === 'back' ? 0.72 : 0.86;
   const fresh = scopeEls[scopeCursor];
   scopeCursor = (scopeCursor + 1) % scopeEls.length;
   fresh.style.order = String(scopeOrder++);
-  fresh.style.height = `${8 + weight * 36}px`;
-  fresh.style.opacity = String(0.45 + weight * 0.45);
+  fresh.style.height = `${8 + weight * 36 + (inTime ? 6 : 0)}px`;
+  fresh.style.opacity = String(inTime ? 1 : 0.45 + weight * 0.45);
+  fresh.style.background = inTime === false ? 'var(--muted)' : '';
 
   const idx = (sensor.events.length * 7) % barEls.length;
   const bar = barEls[idx];
@@ -178,16 +234,29 @@ player.onNote = (note) => {
   bar._reset = setTimeout(() => { bar.style.height = '3px'; bar.style.background = ''; }, 250);
 };
 
+/**
+ * The song position the listener is hearing now. The deck reports what is
+ * being rendered, which reaches the speakers only after the output latency.
+ */
+function heardPosition() {
+  const ctx = piano.ctx;
+  return deck.position - ((ctx?.outputLatency || 0) + (ctx?.baseLatency || 0));
+}
+
 // Global and window-local keyboard events enter through the same privacy boundary.
 function handleKind(kind) {
   if (!enabled || !KEY_KINDS.has(kind)) return;
   sensor.push(kind);
-  animateInput(kind);
+
+  const stems = isPlaying && deck?.playing && mixer && touch;
+  const heard = stems ? heardPosition() : null;
+  const inTime = stems && mixer.beats ? mixer.beats.inTime(heard) : null;
+  animateInput(kind, inTime);
 
   if (!isPlaying) return;
-  if (deck?.playing && mixer && touch) {
-    touch.hit(kind === 'space' || kind === 'enter');
-    mixer.strike(performance.now() / 1000, kind);
+  if (stems) {
+    touch.hit({ accent: kind === 'space' || kind === 'enter', inTime: Boolean(inTime) });
+    mixer.strike(performance.now() / 1000, kind, heard);
     return;
   }
   if (backing?.playing) {
@@ -315,8 +384,10 @@ async function resumePlayback() {
   }
 
   await ensureAudio();
-  if (currentEngine === 'stems' && deck) deck.play(Math.max(deck.position, stemStartOffset));
-  else if (currentEngine === 'audio' && backing) await backing.play();
+  if (currentEngine === 'stems' && deck) {
+    deck.play(Math.max(deck.position, stemStartOffset));
+    startFrameLoop();
+  } else if (currentEngine === 'audio' && backing) await backing.play();
   else if (currentEngine === 'midi') player.resume();
   isPlaying = true;
   updatePowerUi();
@@ -337,6 +408,147 @@ function applyStemMode(mode) {
   localStorage.setItem('keysong:stemMode', mode);
   if (mixer) mixer.setMode(mode);
   renderMixer();
+  // A different stem is a different performance.
+  if (analysis) startTake();
+}
+
+/* ------------------------------------------------------ performance feedback */
+
+/** The presence lane of the stem the current mode reveals, once analysed. */
+function revealedLane() {
+  if (!analysis || !mixer || !deck) return null;
+  const [role] = foregroundRoles(mixer.mode, deck.roles);
+  return (role && analysis.lanes[role]) || null;
+}
+
+/** Begin a new take of the revealed stem from wherever playback is now. */
+function startTake() {
+  const lane = revealedLane();
+  take = lane ? new Take(lane, { start: stemStartOffset }) : null;
+  takeBest = take && current ? bestTakes.get(bestKey(current, mixer.mode)) : null;
+  songMap.show(take, { start: stemStartOffset, end: deck?.duration ?? 0 });
+  el.rail.hidden = Boolean(take);
+  renderScore();
+}
+
+/** Forget the feedback state of the previous track. */
+function clearFeedback() {
+  analysisToken++;
+  analysis = null;
+  take = null;
+  takeBest = null;
+  lastBeatIndex = -1;
+  songMap.show(null);
+  el.rail.hidden = false;
+  renderScore();
+}
+
+/**
+ * Analyse the loaded stems in the background, then switch on the feedback
+ * that depends on it. Until then the stems already follow typing as before.
+ */
+function startAnalysis(item) {
+  const token = ++analysisToken;
+  const cached = analysisCache.get(item.id);
+  const job = cached ? Promise.resolve(cached) : analyzeStems(deck.buffers);
+  job.then((result) => {
+    if (!cached) {
+      analysisCache.set(item.id, result);
+      if (analysisCache.size > 24) analysisCache.delete(analysisCache.keys().next().value);
+    }
+    if (token !== analysisToken || !mixer) return;
+    analysis = result;
+    mixer.setBeatGrid(result.beats);
+    lastBeatIndex = -1;
+    startTake();
+  }).catch((error) => console.warn('[feedback] Analysis failed; stems still follow typing.', error));
+}
+
+const bestKey = (item, mode) => `${item.id}|${mode}`;
+const percent = (share) => `${Math.round(share * 100)}%`;
+
+function renderScore() {
+  el.scoreRead.hidden = !take;
+  if (!take) return;
+  el.scoreLabel.textContent = MODES[mixer.mode].scoreLabel;
+  const { score } = take;
+  el.scoreValue.textContent = score === null ? '—' : percent(score);
+  el.scoreBest.textContent = takeBest === null ? '' : `best ${percent(takeBest)}`;
+}
+
+/**
+ * Say what the revealed stem is doing: sounding because of the typing,
+ * waiting for it, or resting in a break where typing cannot be heard.
+ */
+function renderStemStatus(pos, open) {
+  if (!take) {
+    setSourceTag(open ? 'Following' : 'Backing');
+    return;
+  }
+  const mode = MODES[mixer.mode];
+  const { phrase, next } = take.moment(pos);
+  const state = phrase
+    ? (open ? 'on' : 'cue')
+    : (next && next.start - pos <= CUE_LEAD ? 'cue' : 'break');
+  setSourceTag({ on: mode.playing, cue: 'Your cue', break: 'Break' }[state], state);
+
+  if (state === 'break') {
+    const noun = `${mode.noun[0].toUpperCase()}${mode.noun.slice(1)}`;
+    setHint(next ? `${noun} in ${formatTime(Math.ceil(next.start - pos))}` : `No more ${mode.noun} in this track`);
+  } else if (state === 'cue' && !open) {
+    setHint(`Type now to bring the ${mode.noun} in`);
+  } else {
+    setHint(stemModeHint(mixer.mode, deck.roles));
+  }
+}
+
+/** When a track plays out, report the take and keep it if it is a best. */
+function finishTake() {
+  if (!take?.complete || !current || !mixer) return;
+  const mode = MODES[mixer.mode];
+  const { score } = take;
+  const result = bestTakes.submit(bestKey(current, mixer.mode), score);
+  takeBest = result.best;
+  const parts = [`You ${mode.verb} ${percent(score)} of the ${mode.noun}`];
+  if (result.improved && result.previous !== null) parts.push('a new best');
+  else if (!result.improved) parts.push(`best ${percent(result.best)}`);
+  if (take.longestRun >= 10) parts.push(`longest run ${formatTime(take.longestRun)}`);
+  showToast(parts.join(' · '), 6000);
+  renderList();
+}
+
+/**
+ * Visuals that must follow the music closely: the song map's playhead and
+ * the beat ring. The loop runs only while stems play, and the browser
+ * suspends it whenever the window is hidden.
+ */
+function startFrameLoop() {
+  if (!frameRequest) frameRequest = requestAnimationFrame(frame);
+}
+
+function frame(now) {
+  frameRequest = 0;
+  if (currentEngine !== 'stems' || !deck?.playing) {
+    songMap.draw(deck?.position ?? 0);
+    return;
+  }
+  frameRequest = requestAnimationFrame(frame);
+
+  // The playhead crosses a pixel every half second or so; ten redraws a
+  // second keep it and the gold paint smooth.
+  if (take && now - lastMapDraw > 100) {
+    lastMapDraw = now;
+    songMap.draw(deck.position);
+  }
+
+  const grid = mixer?.beats;
+  if (!grid) return;
+  const heard = heardPosition();
+  const index = grid.indexAt(heard);
+  if (index === lastBeatIndex) return;
+  // Pulse for a beat just crossed, never for one jumped past.
+  if (index > lastBeatIndex && index >= 0 && heard - grid.times[index] < 0.1) pulseBeat(grid.period);
+  lastBeatIndex = index;
 }
 
 const formatRoleList = (roles) => (roles.length < 2
@@ -470,6 +682,7 @@ async function loadTrack(item, { autoplay = true } = {}) {
   el.npTitle.textContent = item.title;
   el.npComposer.textContent = 'Preparing…';
   setSourceTag('Loading');
+  clearFeedback();
   updateListSelection();
 
   try {
@@ -483,6 +696,7 @@ async function loadTrack(item, { autoplay = true } = {}) {
     loadedItemId = null;
     currentEngine = null;
     stemStartOffset = 0;
+    updateProgress();   // Clear the last track's progress while this one loads.
     renderMixer();   // Hidden until we know the new track carries stems.
 
     // Give the browser one frame to paint the loading state. Decoding a large
@@ -514,12 +728,17 @@ async function loadTrack(item, { autoplay = true } = {}) {
       mixer = new Mixer(deck);
       mixer.setRefRate(refRate);
       mixer.setMode(followStemMode(deck.roles));
-      deck.onEnded = () => handleTrackEnded();
+      deck.onEnded = () => {
+        finishTake();
+        handleTrackEnded();
+      };
       stemStartOffset = deck.audibleStart();
       renderMixer();
       el.npComposer.textContent = stemModeHint(mixer.mode, deck.roles);
       setSourceTag('Typing stems');
       if (autoplay) deck.play(stemStartOffset);
+      startAnalysis(item);
+      startFrameLoop();
     } else if (item.audioUrl) {
       currentEngine = 'audio';
       backing = backing || new Backing(piano.ctx);
@@ -596,6 +815,7 @@ function nextItem() {
 function showStandby(item) {
   current = item;
   loadedItemId = null;
+  clearFeedback();
   el.npTitle.textContent = item.title;
   el.npComposer.textContent = 'Enable to play';
   setSourceTag('Standby');
@@ -689,7 +909,7 @@ function renderList() {
     const name = document.createElement('b');
     name.textContent = item.title;
     const source = document.createElement('small');
-    source.textContent = item.stemUrls ? 'Typing stems' : item.audioUrl ? 'Audio' : 'MIDI';
+    source.textContent = item.stemUrls ? stemsLabel(item) : item.audioUrl ? 'Audio' : 'MIDI';
     copy.append(name, source);
     const state = document.createElement('span');
     state.className = 'list-state';
@@ -699,14 +919,35 @@ function renderList() {
   el.list.appendChild(fragment);
 }
 
+/** "Typing stems", plus the best take on the stem this track would reveal. */
+function stemsLabel(item) {
+  const best = bestTakes.get(bestKey(item, followStemMode(Object.keys(item.stemUrls))));
+  return best === null ? 'Typing stems' : `Typing stems · best ${percent(best)}`;
+}
+
 function chooseFromList(target) {
   const li = target?.closest?.('li');
   if (!li || isLoading) return;
   const item = queue.find((entry) => entry.id === li.dataset.id);
   if (!item) return;
+  // Choosing the track that is already loaded must not decode it all over again.
+  if (item.id === loadedItemId) {
+    if (enabled && !isPlaying) resumePlayback().catch(reportError);
+    return;
+  }
   if (!enabled) showStandby(item);
   else loadTrack(item, { autoplay: isPlaying }).catch(reportError);
 }
+
+// A mouse click leaves focus on whatever it pressed, and the next Space or
+// Enter typed into this window presses it again: typing straight after
+// clicking Enable switched monitoring off at the first space, and after
+// clicking a track, reloaded it at every one. Pointer clicks let go of focus;
+// keyboard activation, which reports no click count, keeps it.
+document.addEventListener('click', (event) => {
+  if (event.detail === 0) return;
+  event.target.closest?.('button, [tabindex]')?.blur();
+});
 
 // One delegated pair of listeners instead of two per track.
 el.list.addEventListener('click', (event) => chooseFromList(event.target));
@@ -832,7 +1073,11 @@ setInterval(() => {
 
   if (deck?.playing && mixer) {
     const mix = mixer.update(now, dt, features.rate);
-    setSourceTag(mix.fg > 0.04 ? 'Following' : 'Backing');
+    // Recorded here rather than per frame: the typist is usually in another
+    // window, where frames stop but this loop keeps running.
+    const pos = deck.position;
+    take?.record(pos, mix.fg);
+    renderStemStatus(pos, mix.fg > 0.04);
   } else if (isPlaying && currentEngine === 'midi') {
     player.syncTempo();
   }
@@ -842,6 +1087,7 @@ setInterval(() => {
     el.stRate.textContent = features.rate.toFixed(1);
     updateProgress();
     updateMeters();
+    renderScore();
     const newest = (scopeCursor + scopeEls.length - 1) % scopeEls.length;
     for (let i = 0; i < scopeEls.length; i++) {
       if (i === newest) continue;
@@ -872,6 +1118,8 @@ library.onChange = () => {
   if (current) current = queue.find((item) => item.id === current.id) || current;
   if (!current && queue.length) current = queue[0];
   shuffleDeck = [];
+  // A rescan may carry replaced files under an unchanged name.
+  analysisCache.clear();
   renderList();
 };
 
@@ -937,6 +1185,8 @@ if (import.meta.env.DEV) {
     get backing() { return backing; },
     get deck() { return deck; },
     get mixer() { return mixer; },
+    get analysis() { return analysis; },
+    get take() { return take; },
     handleKind,
   };
 }

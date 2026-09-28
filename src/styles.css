@@ -36,6 +36,10 @@
   --bed-soft: rgba(124, 182, 169, .13);
   --danger: #e08a76;
 
+  /* Song map: stem content still to come, and content already passed. */
+  --map-ahead: rgba(236, 234, 225, .26);
+  --map-behind: rgba(236, 234, 225, .1);
+
   /* Type scale. Nothing below 11px. */
   --t-micro: 11px;
   --t-label: 11.5px;
@@ -249,6 +253,16 @@ main {
 }
 #app[data-playing="true"] .tag { color: var(--live); background: var(--live-soft); }
 
+/* Stem feedback. Solid gold while the typist sounds the stem, a breathing gold
+   outline while it waits for them, neutral through a break. */
+#app[data-playing="true"] .tag[data-state="cue"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(231, 189, 79, .55);
+  animation: cue 1.1s ease-in-out infinite;
+}
+#app[data-playing="true"] .tag[data-state="break"] { color: var(--muted); background: rgba(255, 255, 255, .05); }
+@keyframes cue { 50% { box-shadow: inset 0 0 0 1px rgba(231, 189, 79, .15); } }
+
 .track-row { display: flex; align-items: center; gap: 13px; margin-top: 13px; }
 .cover {
   width: 50px; height: 50px; flex: 0 0 auto; position: relative;
@@ -351,6 +365,11 @@ main {
 
 /* ------------------------------------------------------------- timeline */
 .timeline { margin-top: 13px; }
+
+/* On stem tracks the song map replaces the rail: the revealed stem's content
+   across the whole track, painted gold wherever the typist brought it in. */
+.song-map { display: block; width: 100%; height: 26px; }
+.song-map[hidden], .rail[hidden] { display: none; }
 .rail { height: 4px; border-radius: 99px; background: rgba(255, 255, 255, .07); overflow: hidden; }
 .rail i {
   display: block; height: 100%; width: 0;
@@ -401,6 +420,12 @@ main {
 }
 .pulse-orb i { inset: 0; border-color: transparent; }
 .pulse-orb span { z-index: 1; font-size: 14px; }
+/* Breathes on the song's beat; flares gold when a key lands on it. */
+.pulse-orb .beat-ring {
+  position: absolute; inset: -4px;
+  border: 1px solid var(--live); border-radius: 50%;
+  opacity: 0; pointer-events: none;
+}
 /* Keyframes rather than transitions: a keystroke restarts these through the
    animation API, which avoids forcing a synchronous layout on every key. */
 .pulse-orb.hit::before { animation: orb-press .33s ease; }
@@ -415,7 +440,13 @@ main {
 }
 
 .rhythm-read { min-width: 78px; }
-.rhythm-read .label { display: block; font-size: 10.5px; letter-spacing: .11em; }
+.rhythm-read .label {
+  display: block; font-size: 10.5px; letter-spacing: .11em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.score-read { flex: 0 1 auto; min-width: 0; }
+.score-read b { color: var(--live); }
+.score-read small { white-space: nowrap; }
 .rhythm-read strong { display: flex; align-items: baseline; gap: 4px; margin-top: 3px; }
 .rhythm-read b {
   font-family: var(--mono); font-size: 18px; font-weight: 600;

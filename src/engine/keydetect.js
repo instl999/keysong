@@ -24,10 +24,11 @@ const HI_HZ = 2200;
 
 /**
  * Downmix to mono, resample to ANALYSIS_RATE, and keep only the leading
- * ANALYSIS_SECONDS. A mono destination performs the downmix for us.
+ * ANALYSIS_SECONDS, or as many as asked for. A mono destination performs the
+ * downmix for us.
  */
-export async function toAnalysisSamples(buffer, OfflineCtx = globalThis.OfflineAudioContext) {
-  const seconds = Math.min(buffer.duration, ANALYSIS_SECONDS);
+export async function toAnalysisSamples(buffer, OfflineCtx = globalThis.OfflineAudioContext, { seconds: limit = ANALYSIS_SECONDS } = {}) {
+  const seconds = Math.min(buffer.duration, limit);
   const frames = Math.max(1, Math.round(seconds * ANALYSIS_RATE));
   const offline = new OfflineCtx(1, frames, ANALYSIS_RATE);
   const source = offline.createBufferSource();

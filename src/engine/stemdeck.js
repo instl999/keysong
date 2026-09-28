@@ -44,10 +44,15 @@ export class StemDeck {
       const gain = this.ctx.createGain();
       gain.gain.value = 0;
       gain.connect(this.master);
-      this.stems.set(role, { buffer, gain, src: null });
+      this.stems.set(role, { buffer, gain, src: null, target: null });
       this.duration = Math.max(this.duration, buffer.duration);
     }
     return this;
+  }
+
+  /** Decoded audio by role, for analysis. */
+  get buffers() {
+    return new Map([...this.stems].map(([role, s]) => [role, s.buffer]));
   }
 
   /** Drop decoded audio; a stereo pair can hold well over 100 MB. */
@@ -105,7 +110,11 @@ export class StemDeck {
     this.playing = false;
     this._startOffset = 0;
     // Reset gains so the next start cannot leak full volume before gating begins.
-    for (const s of this.stems.values()) s.gain.gain.value = 0;
+    for (const s of this.stems.values()) {
+      s.gain.gain.cancelScheduledValues(0);
+      s.gain.gain.value = 0;
+      s.target = null;
+    }
   }
 
   _stopSources() {
@@ -155,11 +164,18 @@ export class StemDeck {
     return 0;
   }
 
-  /** Smoothly set a stem gain; ramp controls the fade duration in seconds. */
+  /**
+   * Smoothly set a stem gain; ramp controls the fade duration in seconds.
+   * The mixer restates its mix on every update, so a request that matches
+   * the fade already under way is dropped instead of queued again.
+   */
   setGain(role, value, ramp = 0.05) {
     const s = this.stems.get(role);
     if (!s) return;
-    s.gain.gain.setTargetAtTime(Math.max(0, value), this.ctx.currentTime, Math.max(0.005, ramp / 3));
+    const target = Math.max(0, value);
+    if (s.target && s.target.value === target && s.target.ramp === ramp) return;
+    s.target = { value: target, ramp };
+    s.gain.gain.setTargetAtTime(target, this.ctx.currentTime, Math.max(0.005, ramp / 3));
   }
 
 }

@@ -67,7 +67,9 @@
         </div>
 
         <div class="timeline">
-          <div class="rail"><i id="trackProgress"></i></div>
+          <canvas id="songMap" class="song-map" hidden aria-hidden="true"
+            title="Song map: where the stem you play has content. Gold is what you brought in."></canvas>
+          <div class="rail" id="rail"><i id="trackProgress"></i></div>
           <div class="times"><span id="trackTime">0:00</span><span id="trackDuration">0:00</span></div>
         </div>
 
@@ -85,11 +87,15 @@
         </div>
       </section>
 
-      <section class="rhythm" aria-label="Typing rhythm">
-        <div class="pulse-orb" id="pulseOrb" aria-hidden="true"><i></i><span>⌨</span></div>
+      <section class="rhythm" aria-label="Your performance">
+        <div class="pulse-orb" id="pulseOrb" aria-hidden="true"><b class="beat-ring" id="beatRing"></b><i></i><span>⌨</span></div>
         <div class="rhythm-read">
           <span class="label">Typing rhythm</span>
           <strong><b id="stRate">0.0</b><small>keys / sec</small></strong>
+        </div>
+        <div class="rhythm-read score-read" id="scoreRead" hidden>
+          <span class="label" id="scoreLabel">Vocals sung</span>
+          <strong><b id="scoreValue">—</b><small id="scoreBest"></small></strong>
         </div>
         <div class="pulse-scope" id="pulseScope" aria-hidden="true"></div>
       </section>

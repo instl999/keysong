@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Gate, Mixer, modeAvailable, availableModes, MODES, ANCHOR_ROLE } from '../src/engine/gate.js';
+import { BeatGrid } from '../src/engine/beats.js';
 
 const DEMUCS = ['vocals', 'drums', 'bass', 'other'];
 
@@ -81,14 +82,22 @@ test('the gate never exceeds one or falls below zero', () => {
   }
 });
 
-/** Minimal deck stand-in that records the gains the mixer requests. */
+/** Minimal deck stand-in that records the gains and fades the mixer requests. */
 function fakeDeck(roles) {
   return {
     roles,
     gains: {},
-    setGain(role, value) { this.gains[role] = value; },
+    ramps: {},
+    setGain(role, value, ramp) {
+      this.gains[role] = value;
+      this.ramps[role] = ramp;
+    },
   };
 }
+
+/** A steady grid of `count` beats, `bpm` apart, starting at zero. */
+const steadyGrid = (bpm, count = 64) =>
+  new BeatGrid(Float64Array.from({ length: count }, (_, i) => (i * 60) / bpm), { bpm, periodicity: 0.8 });
 
 test('the mixer opens the foreground and ducks the background', () => {
   const deck = fakeDeck(['vocals', 'instrumental']);
@@ -184,4 +193,91 @@ test('setting the reference rate reaches both gates', () => {
   mixer.setRefRate(6.5);
   assert.equal(mixer.gate.refRate, 6.5);
   assert.equal(mixer.accent.refRate, 6.5);
+});
+
+test('a keystroke opens the foreground at once, without waiting for an update', () => {
+  const deck = fakeDeck(['vocals', 'instrumental']);
+  const mixer = new Mixer(deck);
+  mixer.update(0, 1 / 15, 0);
+  assert.equal(deck.gains.vocals, 0);
+
+  mixer.strike(0.01, 'char');
+  assert.equal(deck.gains.vocals, mixer.fgLevel, 'the open should be sent with the keystroke');
+  assert.ok(deck.gains.instrumental < mixer.bgLevel, 'the duck should be sent with it');
+});
+
+test('stems open quickly and close slowly', () => {
+  const deck = fakeDeck(['vocals', 'instrumental']);
+  const mixer = new Mixer(deck);
+  mixer.strike(0, 'char');
+  assert.ok(deck.ramps.vocals < 0.05, `open fade ${deck.ramps.vocals}`);
+
+  mixer.update(2, 1 / 15, 0);
+  assert.equal(deck.gains.vocals, 0);
+  assert.ok(deck.ramps.vocals >= 0.3, `close fade ${deck.ramps.vocals}`);
+  assert.equal(deck.ramps.instrumental, deck.ramps.vocals, 'the background returns as fast as the vocal leaves');
+});
+
+test('switching the revealed stem never drops the rest of the mix to silence', () => {
+  const deck = fakeDeck(['vocals', 'drums', 'bass', 'other']);
+  const mixer = new Mixer(deck);
+  mixer.setMode('vocal');
+  mixer.update(0, 1 / 15, 0);
+
+  mixer.setMode('drums');
+  assert.equal(deck.gains.drums, 0, 'the newly chosen stem waits for typing');
+  for (const role of ['vocals', 'bass', 'other']) {
+    assert.ok(deck.gains[role] > 0, `${role} should keep playing through the switch`);
+  }
+});
+
+test('with a beat grid, a keystroke holds the stem through the next beat', () => {
+  const mixer = new Mixer(fakeDeck(['vocals', 'instrumental']));
+  mixer.setBeatGrid(steadyGrid(120));
+
+  mixer.strike(10, 'char', 0.1);        // Just after the beat at 0.0.
+  assert.ok(Math.abs(mixer.gate.holdUntil - (10 + 0.4 + 0.12)) < 1e-9,
+    'hold to the beat at 0.5, plus grace');
+});
+
+test('a keystroke just ahead of a beat holds through the beat after it', () => {
+  const mixer = new Mixer(fakeDeck(['vocals', 'instrumental']));
+  mixer.setBeatGrid(steadyGrid(120));
+
+  mixer.strike(10, 'char', 0.46);       // Anticipating the beat at 0.5.
+  assert.ok(Math.abs(mixer.gate.holdUntil - (10 + 0.54 + 0.12)) < 1e-9,
+    'hold to the beat at 1.0, plus grace');
+});
+
+test('tapping on the beat keeps the stem open between taps', () => {
+  const run = (grid) => {
+    const deck = fakeDeck(['vocals', 'instrumental']);
+    const mixer = new Mixer(deck);
+    mixer.setRefRate(6);                 // A fast typist: a short hold per key.
+    mixer.setBeatGrid(grid);
+    const beat = 60 / 90;
+    let lowest = 1;
+    for (let t = 0, next = 0; t < 8; t += 1 / 60) {
+      if (t >= next) { mixer.strike(t, 'char', t); next += beat; }
+      mixer.update(t, 1 / 60, 1.5);
+      if (t > 1) lowest = Math.min(lowest, deck.gains.vocals);
+    }
+    return lowest;
+  };
+  assert.equal(run(steadyGrid(90)), 1, 'on the grid the vocal never drops between beats');
+  assert.equal(run(null), 0, 'without it, beat-paced taps are too slow to hold the vocal open');
+});
+
+test('a grid too irregular to trust leaves holding to typing speed', () => {
+  const mixer = new Mixer(fakeDeck(['vocals', 'instrumental']));
+  mixer.setBeatGrid(new BeatGrid(Float64Array.from([0, 0.5, 1]), { bpm: 120, periodicity: 0.9 }));
+  assert.equal(mixer.beats, null);
+  mixer.strike(10, 'char', 0.1);
+  assert.ok(mixer.gate.holdUntil - 10 < 0.4);
+});
+
+test('every mode carries the words its feedback needs', () => {
+  for (const [name, mode] of Object.entries(MODES)) {
+    assert.ok(mode.noun && mode.verb && mode.playing && mode.scoreLabel, `${name} is missing feedback copy`);
+  }
 });
