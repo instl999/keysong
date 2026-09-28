@@ -1,15 +1,24 @@
 # Keysong
 
-Keysong turns keyboard activity into music. It is a local Windows 11 desktop app that responds to typing across applications and uses input timing to reveal synchronized music stems.
+*Your keys sing the song.* Keysong lets anyone play along with the music they love, with no instrument experience needed. Separate a song into stems, and the part you choose, usually the vocals, only sounds while you type. Keep typing and the song sings. Stop and it waits for you.
 
-[User Guide](docs/user-guide.en.md) | [Development Guide](docs/development.en.md) | [Release Notes](docs/release-notes-v0.1.0.md)
+It is a local Windows 11 desktop app that responds to typing in any application, so writing an email or code performs the song in the background. You can also play it deliberately, tapping along on the beat.
+
+Keysong was called Cadence up to v0.1.0.
+
+[User Guide](docs/user-guide.en.md) | [Development Guide](docs/development.en.md) | [Release Notes](docs/release-notes-v0.2.0.md)
 
 ## Highlights
 
-- System-wide keyboard response on Windows 11.
-- Monitoring starts only after **Enable** and stops on **Disable** or app exit.
+- Typing reveals the stem you choose, whether vocals, drums, bass, or the other instruments, over the rest of the synchronized mix. It opens the moment a key lands.
+- **Performance feedback:**
+  - A song map shows where the part you play has content and paints gold what you brought in.
+  - A status tag tells you when it's your cue and when the song is in a break.
+  - A live score measures how much of the part you played.
+  - Each track remembers your best take.
+- **Beat awareness:** Keysong finds the song's pulse. The keyboard orb pulses on the beat and flares gold when you land on it. Tapping along keeps the part sounding even at one key per beat.
+- System-wide keyboard response on Windows 11. Monitoring starts only after **Enable** and stops on **Disable** or app exit.
 - Raw key codes are classified in the Electron main process; the renderer receives only `char`, `back`, `enter`, or `space`.
-- Vocal and instrumental stems remain synchronized while typing controls vocal presence.
 - A fixed `Music Resources/song/files` directory is scanned and watched automatically.
 - Play, pause, next, sequence, shuffle, and direct playlist selection.
 - Portable Windows build with no installer required.
@@ -30,7 +39,7 @@ Run Keysong, select a track, choose **Enable**, and start typing in any applicat
 
 ## Privacy Summary
 
-The global keyboard hook must receive operating-system keyboard events to detect activity, but Keysong does not persist typed characters, reconstructed text, clipboard content, or key history. Pausing playback does **not** disable monitoring. Choose **Disable** or exit Keysong when monitoring should stop.
+The global keyboard hook must receive operating-system keyboard events to detect activity, but Keysong does not persist typed characters, reconstructed text, clipboard content, or key history. Performance feedback uses only keystroke timing; the only thing it saves is a best score per track. Pausing playback does **not** disable monitoring. Choose **Disable** or exit Keysong when monitoring should stop.
 
 Imported music is read locally and is not uploaded. The sampled piano may make a one-time CDN request through `smplr`; Keysong falls back to a local synthesizer when offline.
 
@@ -55,8 +64,11 @@ Keysong recognizes common English stem labels such as `Vocals`, `Instrumental`, 
 
 ## Development
 
+Requires Node.js 22.12 or later.
+
 ```powershell
 npm install
+npm test             # Unit tests on the Node test runner
 npm run dev          # Browser preview with page-local input
 npm run desktop      # Build and launch the desktop app
 npm run package:win  # Create the sanitized portable Windows package
@@ -68,4 +80,4 @@ npm run package:win  # Create the sanitized portable Windows package
 
 Only process, play, or redistribute music you own or are authorized to use. Stem separation does not change the copyright status of a recording.
 
-This repository currently has no project-level open-source `LICENSE`. Choose one before making the repository public or accepting external contributions.
+This repository has no project-level open-source `LICENSE` yet, although it is public. Without one, nobody else may legally use, modify, or redistribute the code. Choose a license before accepting external contributions.

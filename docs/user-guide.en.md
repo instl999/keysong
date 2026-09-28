@@ -6,7 +6,9 @@
 
 Keysong turns typing rhythm into part of a song. It does not restart a sample for every key. Instead, separated tracks share one synchronized timeline: the instrumental keeps playing while typing activity controls the foreground stem. When you stop, the mix settles back toward the instrumental; when you resume, the vocal returns naturally.
 
-The desktop build targets Windows 11. Once enabled, typing in a browser, chat app, document editor, or IDE can drive the music even while Keysong is in the background.
+The desktop build targets Windows 11. Once enabled, typing in a browser, chat app, document editor, or IDE can drive the music even while Keysong is in the background. With the window in view you can also play deliberately. The song map shows where the next phrase starts, the orb pulses on the beat, and a score tells you how much of the part you played (see [Reading Your Performance](#reading-your-performance)).
+
+Keysong was called Cadence up to v0.1.0.
 
 ## 2. Before You Start
 
@@ -35,7 +37,8 @@ The desktop build targets Windows 11. Once enabled, typing in a browser, chat ap
 | Next | Selects the next song | Shuffle chooses another random song |
 | Sequence / Shuffle | Controls automatic track order | The choice is saved locally |
 | Stems mixer | Chooses which stem responds to typing | Gold row follows your typing; teal rows always play |
-| Playlist item | Selects a song immediately | If playback is active, the new song starts automatically |
+| Song map | Replaces the progress bar on stem tracks | Shows where the stem you play has content; gold marks what you brought in |
+| Playlist item | Selects a song immediately | If playback is active, the new song starts automatically; the best score shows under the title |
 | Music Resource | Opens the fixed resource directory | The desktop app watches it for changes |
 | `?` | Shows the folder and UVR quick guide | Available by hover, keyboard focus, or click |
 
@@ -131,13 +134,55 @@ If UVR produces `Vocals` and `No Vocals`, those names may be kept; Keysong recog
 - Every stem uses the same playback start and offset.
 - Keyboard activity changes a foreground gain gate; it does not restart samples.
 - The stem selected in the **Stems** mixer is the one the gate controls. Every other stem plays continuously, and bass holds a steady level throughout.
+- The selected stem opens the moment a key lands, fading in over a few hundredths of a second.
 - Continuous typing keeps the selected stem present. Stopping produces a short natural fade instead of an abrupt cut.
+- When Keysong has found the song's beat, each keystroke keeps the stem open through the next beat. Tapping one key per beat keeps it sounding without a gap, and when you stop, it fades out on the beat rather than between two.
 - Space and Enter are treated as structural boundaries and receive a slightly stronger tactile response.
-- A vocal stem may already be silent during an intro or instrumental break; typing cannot create vocals that are not present in that part of the source.
+- A vocal stem may already be silent during an intro or instrumental break; typing cannot create vocals that are not present in that part of the source. The status tag says **Break** when that is the case.
 
 These rules need only timing and event category, not the text you type.
 
-## 6. Privacy, Permissions, and Network Access
+<a id="reading-your-performance"></a>
+## 6. Reading Your Performance
+
+A second or two after a stem track starts, Keysong has analysed it: where the stem you play has content, and where the song's beats fall. The feedback below then switches on. Until it does, the stems follow your typing as usual.
+
+### The Song Map
+
+On stem tracks the progress bar becomes a map of the whole song. Bars show where the stem you play (the gold row in the mixer) has content. Flat stretches are breaks, where that stem is silent.
+
+- **Ahead of the playhead**, the map previews what is coming, so you can see the next phrase approach.
+- **Behind the playhead**, bars turn gold where you brought the part in and stay dim where you missed it.
+
+### The Status Tag
+
+The tag beside **Now playing** says what the part is doing right now:
+
+| Tag | Meaning |
+|---|---|
+| Singing / Playing | You are typing and the part is sounding. |
+| Your cue | The part has content now, or will within about half a second, and it is waiting for you. Start typing. |
+| Break | The part is silent here. Typing still opens it, but there is nothing to hear. The line under the song title counts down to the next phrase. |
+
+### The Score
+
+**Vocals sung** (or **Drums played**, and so on) is the share of the part's real content you have revealed so far in this play-through. Resting through a break never lowers it, and typing through silence never raises it.
+
+When a track plays to the end, a message reports your take, for example *You sang 77% of the vocals*. Keysong keeps your best score for each track and stem and shows it in the playlist. Choosing a different stem starts a new take.
+
+### The Beat Ring
+
+When Keysong finds a steady beat, the ring around the keyboard orb pulses on every beat. A keystroke that lands within about 70 ms of a beat flares the ring gold, sounds a slightly brighter click, and appears as a gold bar in the keystroke scope. Off-beat keys appear grey.
+
+Songs without a steady pulse, such as rubato ballads or ambient pieces, show no ring: Keysong shows nothing rather than a wrong beat. Very fast or very slow songs may pulse at half or double speed, which still lands on the beat.
+
+### Tips for Playing
+
+- Watch the map and start typing just before a phrase reaches the playhead.
+- Rest during breaks; it costs nothing.
+- To play the rhythm, tap one key per beat with the ring. The part stays open between taps.
+
+## 7. Privacy, Permissions, and Network Access
 
 ### What Is Processed
 
@@ -146,6 +191,7 @@ These rules need only timing and event category, not the text you type.
 - Modifier keys themselves are ignored.
 - The music renderer receives only the category—not the raw key code, character, clipboard content, or reconstructed text.
 - Keyboard history is not written to a file, database, or log and is not uploaded.
+- Performance feedback uses the same timing and categories. The only thing it stores is each track's best score: the track's playlist identifier and a percentage, kept in the app's local storage.
 
 ### What Keysong Does Not Do
 
@@ -162,7 +208,7 @@ Imported music is read locally. When the sampled piano is initialized, `smplr` m
 
 A system-wide keyboard hook is a sensitive capability. Run only trusted builds and enable Keysong only on devices you own or are authorized to use. To explicitly stop monitoring, select **Disable** or exit the app—not merely Pause.
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 ### Enable was selected, but there is no music
 
@@ -189,10 +235,15 @@ A system-wide keyboard hook is a sensitive capability. Run only trusted builds a
 
 ### Instrumental plays, but vocals do not follow typing
 
+- Look at the status tag. **Break** means the vocal stem is silent at this point in the song; the song map shows where it returns.
 - Check that the vocal file plays independently in a normal media player.
 - Confirm both files resolve to the same song title.
-- Make sure UVR did not create an almost-silent vocal output.
+- Make sure UVR did not create an almost-silent vocal output. If the song map shows no bars at all, the stem has no content Keysong can detect.
 - Move to a section that actually contains vocals; an intro or instrumental break may be silent by design.
+
+### The beat ring never appears
+
+Beat feedback needs a steady pulse. Songs with rubato, sparse percussion, or an ambient texture fall back to following typing speed alone, and the rest of the feedback still works. The ring also stays still while the Keysong window is minimized or covered, because the window is not drawn then; scoring continues in the background.
 
 ### Stems drift or start out of sync
 
@@ -207,7 +258,7 @@ A system-wide keyboard hook is a sensitive capability. Run only trusted builds a
 - Avoid read-only, protected, or incompletely synchronized cloud locations.
 - Select **Music Resource** and verify that Keysong opens the directory you are editing.
 
-## 8. Updating, Moving, and Removing Keysong
+## 9. Updating, Moving, and Removing Keysong
 
 ### Update
 
@@ -216,14 +267,16 @@ A system-wide keyboard hook is a sensitive capability. Run only trusted builds a
 3. Replace the old `.exe` while keeping the resource folder beside it.
 4. Launch the new version and verify the playlist.
 
+Upgrading from Cadence 0.1.0: the `Music Resources` folder is unchanged. Preferences are stored under the new name, so playback order, the chosen stem, and the typing-speed calibration start fresh once. The calibration relearns within a minute of typing.
+
 ### Move to Another Computer or Directory
 
 Copy both the `.exe` and the complete `Music Resources` folder. Keep paired stems together and preserve their relative layout.
 
 ### Remove
 
-Keysong is portable. Exit it and delete the `.exe`; delete `Music Resources` separately only if you no longer need the music. A few interface preferences, such as playback order, are stored by Electron/Chromium in the current Windows user's application-data directory and are not removed automatically with the portable file.
+Keysong is portable. Exit it and delete the `.exe`; delete `Music Resources` separately only if you no longer need the music. A few interface preferences, such as playback order, and your best scores are stored by Electron/Chromium in the current Windows user's application-data directory and are not removed automatically with the portable file.
 
-## 9. Music Rights
+## 10. Music Rights
 
 Keysong, UVR, and other separation tools do not grant rights to a recording. Confirm that you have permission to play, modify, and distribute the original recording, MIDI, and separated stems. Do not commit copyrighted songs or stems to the source repository. The project's `.gitignore` excludes common local-music and build directories, but always inspect the staged file list before publishing.
