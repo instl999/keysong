@@ -82,4 +82,4 @@ npm run package:win  # Create the sanitized portable Windows package
 
 Only process, play, or redistribute music you own or are authorized to use. Stem separation does not change the copyright status of a recording.
 
-This repository has no project-level open-source `LICENSE` yet, although it is public. Without one, nobody else may legally use, modify, or redistribute the code. Choose a license before accepting external contributions.
+Keysong's source code is released under the [MIT License](LICENSE). The license covers the code only, never the music you play with it. Release builds include `THIRD-PARTY-NOTICES.txt` with the licenses of the open-source packages bundled into the app.

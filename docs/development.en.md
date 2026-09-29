@@ -42,7 +42,8 @@ electron/
   preload.cjs         Minimal contextBridge surface
 scripts/
   build-midi.mjs      Builds the MIDI manifest
-  prepare-release.mjs Merges example music resources into release output
+  prepare-release.mjs Merges example music resources and licenses into release output
+  third-party-notices.mjs  Collects the licenses of every bundled package
 src/
   main.js             UI state, transport, engine orchestration, feedback wiring
   styles.css          UI styling
@@ -244,7 +245,7 @@ The executable is currently unsigned. Before a public release:
 2. Generate a SHA-256 checksum and publish it with release notes.
 3. Push source to GitHub without committing `release/` or user music.
 4. Attach the `.exe` as a GitHub Release asset; it may exceed the normal Git blob size limit.
-5. Choose and add an explicit `LICENSE`. The repository is already public without one, so nobody else may use the code yet.
+5. Check that `release/` holds `LICENSE.txt` and `THIRD-PARTY-NOTICES.txt` beside the executable. `build:release` also writes the notices into `dist/`, so they ship inside the app.
 
 ## 10. Verification Checklist
 
@@ -307,4 +308,8 @@ Browser and Electron paths differ for `file://`, the custom scheme, and audio pe
 
 ## 12. Licensing and Third-Party Components
 
-The repository is public but has no project-level `LICENSE`; do not assume an open-source grant. The publisher should choose a license and review attribution and license requirements for Electron, Tone.js, smplr, uiohook, UVR models, and bundled assets. Recording, MIDI transcription, and separated-stem rights must be confirmed independently.
+Keysong is released under the MIT License (`LICENSE`). Every production dependency is under a permissive license (MIT, Apache-2.0, or 0BSD).
+
+The production bundle strips license comments, so `scripts/third-party-notices.mjs` rebuilds the required notices from `package-lock.json`. It covers every package not marked dev-only. It reproduces each package's license file; for an MIT package that publishes none, it reconstructs the notice from the declared author. Electron's own licenses are added by electron-builder.
+
+Check a new dependency's license before adding it. Recording, MIDI transcription, and separated-stem rights must be confirmed independently, and the code license never covers them.

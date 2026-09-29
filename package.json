@@ -1,6 +1,7 @@
 {
   "name": "keysong",
   "private": true,
+  "license": "MIT",
   "version": "0.2.0",
   "main": "electron/main.cjs",
   "type": "module",
@@ -13,7 +14,7 @@
     "test": "node --test \"tests/*.test.js\"",
     "dev": "npm run midi && vite",
     "build": "npm run midi && vite build",
-    "build:release": "node scripts/build-midi.mjs --no-local && vite build",
+    "build:release": "node scripts/build-midi.mjs --no-local && vite build && node scripts/third-party-notices.mjs dist",
     "preview": "vite preview",
     "desktop": "npm run build && electron .",
     "package:win": "npm run build:release && electron-builder --win portable && node scripts/prepare-release.mjs"

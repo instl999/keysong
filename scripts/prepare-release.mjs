@@ -1,5 +1,6 @@
-import { access, cp, mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
+import { access, cp, mkdir, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { thirdPartyNotices } from './third-party-notices.mjs';
 
 /**
  * Song folders that belong in a public package.
@@ -16,12 +17,14 @@ const LEGACY_MUSIC_RESOURCE_NAME = '\u97f3\u4e50\u8d44\u6e90';
 const musicSource = resolve('Music Resources');
 const docsSource = resolve('docs');
 const readmeSource = resolve('README.md');
+const licenseSource = resolve('LICENSE');
 const targets = [
   resolve('release'),
   resolve('release', 'win-unpacked'),
 ];
 
-await Promise.all([stat(musicSource), stat(docsSource), stat(readmeSource)]);
+await Promise.all([stat(musicSource), stat(docsSource), stat(readmeSource), stat(licenseSource)]);
+const notices = await thirdPartyNotices(resolve('.'));
 for (const releaseRoot of targets) {
   const musicTarget = resolve(releaseRoot, 'Music Resources');
   const legacyMusicTarget = resolve(releaseRoot, LEGACY_MUSIC_RESOURCE_NAME);
@@ -71,8 +74,12 @@ for (const releaseRoot of targets) {
   await rm(docsTarget, { recursive: true, force: true });
   await cp(docsSource, docsTarget, { recursive: true, force: true });
   await cp(readmeSource, resolve(releaseRoot, 'README.md'), { force: true });
+  // The licenses travel beside the executable as well as inside it.
+  await cp(licenseSource, resolve(releaseRoot, 'LICENSE.txt'), { force: true });
+  await writeFile(resolve(releaseRoot, 'THIRD-PARTY-NOTICES.txt'), notices, 'utf8');
   console.log(`  [music-resource] ${musicTarget}`);
   console.log(`  [documentation] ${resolve(releaseRoot, 'docs')}`);
+  console.log(`  [licenses] ${resolve(releaseRoot, 'LICENSE.txt')}`);
 }
 
 // electron-builder diagnostics may contain absolute local paths and are not

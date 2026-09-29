@@ -32,4 +32,7 @@ The executable is `Keysong-0.2.0-Windows.exe`. Keep it beside your existing `Mus
 - Windows code signing is not configured, so SmartScreen may display a warning.
 - Beat tracking is tuned for music with a steady pulse. Very fast or slow songs may be tracked at half or double speed.
 - No commercial music is bundled; users must add music they own or are authorized to use.
-- No open-source license has been selected.
+
+## License
+
+Keysong is now open source under the MIT License. Release builds include `THIRD-PARTY-NOTICES.txt` with the licenses of the bundled open-source packages.
