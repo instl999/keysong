@@ -318,12 +318,46 @@ if (uIOhook) {
   });
 }
 
+const WINDOW_SIZE = { width: 452, height: 828, minWidth: 390, minHeight: 640 };
+const MINI_SIZE = { width: 380, minHeight: 180, maxHeight: 560 };
+let fullBounds = null;   // Where the full window was, while mini mode is on.
+
+/**
+ * Mini mode: a small player that stays on top, so the song map and cues stay
+ * in view while the typing happens in another app. The renderer lays itself
+ * out compactly first and asks for exactly the height that layout needs.
+ */
+function setMini(mini, contentHeight) {
+  if (!mainWindow || mainWindow.isDestroyed()) return { mini: false };
+  if (mini) {
+    if (!fullBounds) {
+      if (mainWindow.isMaximized()) mainWindow.unmaximize();
+      fullBounds = mainWindow.getBounds();
+    }
+    const height = Math.round(Math.min(MINI_SIZE.maxHeight,
+      Math.max(MINI_SIZE.minHeight, Number(contentHeight) || 0)));
+    // Called again whenever the compact layout changes height. Resizing keeps
+    // the top-left corner, so a mini player the user has moved stays put.
+    mainWindow.setResizable(true);
+    mainWindow.setMinimumSize(MINI_SIZE.width, MINI_SIZE.minHeight);
+    mainWindow.setContentSize(MINI_SIZE.width, height);
+    mainWindow.setResizable(false);
+    mainWindow.setMaximizable(false);
+    mainWindow.setAlwaysOnTop(true, 'floating');
+  } else if (fullBounds) {
+    mainWindow.setAlwaysOnTop(false);
+    mainWindow.setResizable(true);
+    mainWindow.setMaximizable(true);
+    mainWindow.setMinimumSize(WINDOW_SIZE.minWidth, WINDOW_SIZE.minHeight);
+    mainWindow.setBounds(fullBounds);
+    fullBounds = null;
+  }
+  return { mini: Boolean(fullBounds) };
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 452,
-    height: 828,
-    minWidth: 390,
-    minHeight: 640,
+    ...WINDOW_SIZE,
     backgroundColor: '#0b0d0c',
     show: false,
     autoHideMenuBar: true,
@@ -361,12 +395,16 @@ function createWindow() {
     }
     if (!allowed) event.preventDefault();
   });
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+    fullBounds = null;
+  });
 }
 
 ipcMain.handle('keysong:get-state', () => publishState());
 ipcMain.handle('keysong:set-enabled', (_event, enabled) => setMonitoring(enabled));
 ipcMain.handle('keysong:get-music-resource', () => safeScanMusicResource());
+ipcMain.handle('keysong:set-mini', (_event, mini, contentHeight) => setMini(Boolean(mini), contentHeight));
 ipcMain.handle('keysong:open-music-resource', async () => {
   try {
     const root = await ensureMusicResourceRoot();

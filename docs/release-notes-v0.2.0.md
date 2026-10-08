@@ -21,7 +21,14 @@ Only keystroke timing is used. The only new stored data is a best score per trac
 - **Built-in demo.** *Ode to Joy* is always in the playlist: Beethoven's public-domain melody in a four-stem arrangement that Keysong synthesizes in about two seconds. New users can play right away, and a short guide under it explains how to add their own songs.
 - **Sound panel.** The speaker button sets the music volume and switches the key click off for those who only want the music.
 - **Jump anywhere.** Click the song map or progress bar to move to that point, for example to practise a phrase or skip an intro.
+- **Mini player.** One click shrinks Keysong to a small window that stays on top, showing the song map, your cue, and your score while you type in another app.
 - **Clearer interface.** Drawn icons replace the text symbols on the playback buttons, best scores appear as a gold badge in the playlist, and the small labels now meet the WCAG AA contrast minimum.
+
+## Security Updates
+
+- Electron 43.4.1 → 43.7.9, which fixes a high-severity advisory: a compromised renderer could poison the sandboxed preload code cache (GHSA-qmv3-fv6v-rmhq).
+- Patch updates to build and development tools with high-severity advisories: undici, brace-expansion, source-map-js, http-cache-semantics, js-yaml, fast-uri, and @xmldom/xmldom.
+- One moderate advisory remains in electron-builder's dependency chain (sprintf-js). Its only fix downgrades electron-builder, and it affects build tooling, not the app.
 
 ## Fixes
 

@@ -207,6 +207,10 @@ With a usable `BeatGrid`, `Mixer.strike()` holds the gate at least until the nex
 
 `SongMap` redraws about ten times a second from the take's arrays. The beat ring is triggered from `requestAnimationFrame` by comparing the heard position, the deck position minus `outputLatency` and `baseLatency`, against the grid. Both are visual only and pause with the window. Scoring never depends on them.
 
+### Mini Mode
+
+The renderer adds `body.mini`, which hides everything but the top bar, the song, its status, the song map, play/pause, and the score. It gives `#app` its natural height and sends that height over `keysong:set-mini`. The main process remembers the full window's bounds, fits the content to 380 px wide by that height, keeps it on top, and disables resizing and maximizing. Leaving mini mode restores all of it. A `ResizeObserver` on `#app` sends the height again whenever the compact layout changes, for example when the hint wraps. Resizing keeps the top-left corner, so a mini player the user has moved stays put. In the browser preview the button switches only the layout.
+
 ### Output and Volume
 
 Every engine plays into one native `GainNode` created in `ensureAudio()`: the stem deck, the audio backing, the key clicks, and the sampled piano (through smplr's `destination` option). The slider sets that gain on a squared curve. Tone.js wraps its nodes, and they cannot connect to a native node, so the synth piano stays on Tone's destination and `Piano.setVolume()` matches its level.
@@ -294,6 +298,7 @@ Set `KEYSONG_SLOW_TESTS=1` to include the 130,000-note MIDI parsing test.
 - On a track with a steady beat, the orb ring pulses in time; on a beatless track it stays still.
 - A track played to the end reports the take, and the playlist shows the best.
 - Typing into the Keysong window right after clicking Enable or a playlist entry neither disables monitoring nor reloads the track.
+- The mini player button shrinks the window to the compact player, keeps it above other windows, and refits it when the layout changes; pressing it again restores the previous size, position, and resizability.
 - Disable stops the response, and app exit leaves no Keysong process behind.
 - Sequence/shuffle, direct playlist selection, and offline synth fallback work.
 

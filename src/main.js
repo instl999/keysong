@@ -55,6 +55,7 @@ const el = {
   emptyLibrary: $('emptyLibrary'),
   emptyLibraryText: $('emptyLibraryText'),
   emptyLibraryAction: $('emptyLibraryAction'),
+  miniButton: $('miniButton'),
   soundButton: $('soundButton'),
   soundPanel: $('soundPanel'),
   volume: $('volume'),
@@ -1071,6 +1072,41 @@ el.clicks.addEventListener('change', () => {
 document.addEventListener('pointerdown', (event) => {
   if (!el.soundPanel.hidden && !event.target.closest?.('.sound-wrap')) setSoundPanel(false);
 });
+
+// ---------------------------------------------------------------- mini mode
+
+let mini = false;
+const appHeight = () => Math.ceil(el.app.getBoundingClientRect().height);
+
+/**
+ * Shrink to a small always-on-top player, so the song map and cues stay in
+ * view while the typing happens in another app. The compact layout goes in
+ * first, then the window is fitted to its height.
+ */
+async function setMiniMode(on) {
+  mini = on;
+  setSoundPanel(false);
+  document.body.classList.toggle('mini', on);
+  const label = on ? 'Full window' : 'Mini player';
+  el.miniButton.dataset.icon = on ? 'full' : 'mini';
+  el.miniButton.title = label;
+  el.miniButton.setAttribute('aria-label', label);
+  el.miniButton.setAttribute('aria-pressed', String(on));
+  if (!desktop?.setMini) return;
+  try {
+    await desktop.setMini(on, on ? appHeight() : 0);
+  } catch (error) {
+    reportError(error);
+  }
+}
+
+el.miniButton.addEventListener('click', () => setMiniMode(!mini));
+
+// The compact layout changes height when, say, the hint wraps or the score
+// appears; keep the window fitted to it.
+new ResizeObserver(() => {
+  if (mini && desktop?.setMini) desktop.setMini(true, appHeight()).catch(reportError);
+}).observe(el.app);
 
 // ------------------------------------------------------------------ seeking
 

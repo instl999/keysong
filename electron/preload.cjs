@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('keysongDesktop', {
   setEnabled: (enabled) => ipcRenderer.invoke('keysong:set-enabled', Boolean(enabled)),
   getMusicResource: () => ipcRenderer.invoke('keysong:get-music-resource'),
   openMusicResource: () => ipcRenderer.invoke('keysong:open-music-resource'),
+  setMini: (mini, contentHeight) => ipcRenderer.invoke('keysong:set-mini', Boolean(mini), Number(contentHeight) || 0),
   onKey: (callback) => {
     const listener = (_event, payload) => {
       if (payload && validKinds.has(payload.kind)) callback({ kind: payload.kind });

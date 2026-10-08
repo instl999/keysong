@@ -144,8 +144,11 @@ body.desktop .topbar { -webkit-app-region: drag; }
 body.desktop .status { -webkit-app-region: no-drag; }
 
 /* ---------------------------------------------------------------- sound */
-.sound-wrap { position: relative; margin-left: auto; }
-body.desktop .sound-wrap { -webkit-app-region: no-drag; }
+.sound-wrap { position: relative; }
+.mini-button { margin-left: auto; }
+body.desktop :is(.sound-wrap, .mini-button) { -webkit-app-region: no-drag; }
+.mini-button[data-icon="mini"] .icon-full,
+.mini-button[data-icon="full"] .icon-mini { display: none; }
 .icon-button {
   width: 30px; height: 30px; padding: 0;
   display: grid; place-items: center;
@@ -747,6 +750,25 @@ main {
   transition: opacity .2s, transform .2s;
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ------------------------------------------------------------ mini mode */
+/* A small player kept on top while typing happens elsewhere: the song, what
+   it is doing, the song map, and the score. The rest waits for the full
+   window. #app takes its natural height, which the window is fitted to. */
+body.mini #app { height: auto; padding-bottom: 12px; }
+body.mini .topbar { margin-bottom: 8px; }
+body.mini :is(.power-bar, .flow-guide, .mixer, .bars, .library, .cover, .pulse-scope, #order, #next, .brand-copy p) {
+  display: none;
+}
+body.mini main { overflow: visible; gap: 8px; }
+body.mini .stage { padding: 11px 14px 9px; }
+body.mini .track-row { margin-top: 7px; }
+body.mini .track-copy h2 { font-size: var(--t-lead); }
+body.mini .timeline { margin-top: 10px; }
+body.mini .transport { margin-top: 0; }
+body.mini .play-btn { width: 34px; height: 34px; box-shadow: none; }
+body.mini .play-btn .icon { width: 16px; height: 16px; }
+body.mini .rhythm { min-height: 0; padding: 8px 14px; }
 
 /* --------------------------------------------------------------- responsive */
 @media (max-height: 720px) {

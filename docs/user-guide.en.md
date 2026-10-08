@@ -38,6 +38,7 @@ Keysong was called Cadence up to v0.1.0.
 |---|---|---|
 | Enable / Disable | Starts or stops Windows-wide keyboard monitoring | Disable does not remove music files |
 | Sound (speaker icon) | Sets the music volume and switches the key click on or off | Both are saved locally |
+| Mini player (window icon) | Shrinks Keysong to a small player that stays on top of other windows | Shows the song map, status, and score while you type elsewhere; the same button restores the full window |
 | Play / Pause | Controls the current song | Monitoring may remain enabled while paused |
 | Next | Selects the next song | Shuffle chooses another random song |
 | Sequence / Shuffle | Controls automatic track order | The choice is saved locally |
@@ -183,6 +184,7 @@ Songs without a steady pulse, such as rubato ballads or ambient pieces, show no 
 
 ### Tips for Playing
 
+- To watch your cues while you type in another app, switch to the **mini player** with the window icon in the top bar. It keeps the song map, the status tag, and your score in a small window on top of everything else. You can drag it anywhere, and the same button brings back the full window.
 - Watch the map and start typing just before a phrase reaches the playhead.
 - Rest during breaks; it costs nothing.
 - To play the rhythm, tap one key per beat with the ring. The part stays open between taps.

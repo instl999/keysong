@@ -25,6 +25,7 @@ Keysong was called Cadence up to v0.1.0.
 - A fixed `Music Resources/song/files` directory is scanned and watched automatically.
 - Play, pause, next, sequence, shuffle, direct playlist selection, and click-to-jump on the song map or progress bar.
 - A sound panel for the music volume and the per-key click.
+- A mini player that stays on top of other windows, so the song map and your cues stay in view while you type elsewhere.
 - Portable Windows build with no installer required.
 
 ## Quick Start
