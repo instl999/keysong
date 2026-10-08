@@ -16,6 +16,13 @@ Typing used to open and close the chosen stem without knowing what the song was 
 
 Only keystroke timing is used. The only new stored data is a best score per track: its playlist id and a number.
 
+## Easier to Start, Easier to Control
+
+- **Built-in demo.** *Ode to Joy* is always in the playlist: Beethoven's public-domain melody in a four-stem arrangement that Keysong synthesizes in about two seconds. New users can play right away, and a short guide under it explains how to add their own songs.
+- **Sound panel.** The speaker button sets the music volume and switches the key click off for those who only want the music.
+- **Jump anywhere.** Click the song map or progress bar to move to that point, for example to practise a phrase or skip an intro.
+- **Clearer interface.** Drawn icons replace the text symbols on the playback buttons, best scores appear as a gold badge in the playlist, and the small labels now meet the WCAG AA contrast minimum.
+
 ## Fixes
 
 - `npm test` failed on Node.js 21 and later, including the documented 22.12, and every build command failed on a fresh clone because of the missing `scripts/scores/` folder. Both work again. Node.js 22.12 or later is now declared as required.

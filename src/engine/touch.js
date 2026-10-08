@@ -15,11 +15,13 @@
 const NOISE_SECONDS = 0.5;
 
 export class Touch {
-  constructor(ctx) {
+  /** @param output Where clicks go: the app's volume stage, or the speakers. */
+  constructor(ctx, output = ctx.destination) {
     this.ctx = ctx;
     this.out = ctx.createGain();
     this.out.gain.value = 0.05;
-    this.out.connect(ctx.destination);
+    this.out.connect(output);
+    this.enabled = true;     // The listener can switch clicks off.
     this._noise = this._makeNoise();
     this._last = 0;
   }
@@ -37,6 +39,7 @@ export class Touch {
    * @param inTime The key landed on the song's beat: answer a little brighter.
    */
   hit({ accent = false, inTime = false } = {}) {
+    if (!this.enabled) return;
     const ctx = this.ctx;
     const t = ctx.currentTime + 0.002;   // Use the native clock without look-ahead.
     if (t - this._last < 0.02) return;   // Rate-limit extreme bursts.

@@ -12,6 +12,7 @@ Keysong was called Cadence up to v0.1.0.
 
 ## Highlights
 
+- **Playable from the first second:** a built-in demo, *Ode to Joy* in a four-stem arrangement that Keysong synthesizes itself, so you can try it before preparing any music of your own.
 - Typing reveals the stem you choose, whether vocals, drums, bass, or the other instruments, over the rest of the synchronized mix. It opens the moment a key lands.
 - **Performance feedback:**
   - A song map shows where the part you play has content and paints gold what you brought in.
@@ -22,7 +23,8 @@ Keysong was called Cadence up to v0.1.0.
 - System-wide keyboard response on Windows 11. Monitoring starts only after **Enable** and stops on **Disable** or app exit.
 - Raw key codes are classified in the Electron main process; the renderer receives only `char`, `back`, `enter`, or `space`.
 - A fixed `Music Resources/song/files` directory is scanned and watched automatically.
-- Play, pause, next, sequence, shuffle, and direct playlist selection.
+- Play, pause, next, sequence, shuffle, direct playlist selection, and click-to-jump on the song map or progress bar.
+- A sound panel for the music volume and the per-key click.
 - Portable Windows build with no installer required.
 
 ## Quick Start

@@ -23,7 +23,7 @@
 
   --ink: #eceae1;
   --muted: #9aa096;
-  --faint: #6b726a;
+  --faint: #7d847b;   /* 4.9:1 on the panels: AA for the small labels it carries. */
 
   --rule: rgba(255, 255, 255, .065);
   --rule-2: rgba(255, 255, 255, .13);
@@ -129,7 +129,7 @@ body.desktop .topbar { -webkit-app-region: drag; }
 }
 
 .status {
-  margin-left: auto; flex: 0 0 auto;
+  flex: 0 0 auto;
   display: flex; align-items: center; gap: 7px;
   padding: 5px 11px 5px 9px;
   border: 1px solid var(--rule); border-radius: 99px;
@@ -142,6 +142,69 @@ body.desktop .topbar { -webkit-app-region: drag; }
   transition: color .25s, border-color .25s, background .25s;
 }
 body.desktop .status { -webkit-app-region: no-drag; }
+
+/* ---------------------------------------------------------------- sound */
+.sound-wrap { position: relative; margin-left: auto; }
+body.desktop .sound-wrap { -webkit-app-region: no-drag; }
+.icon-button {
+  width: 30px; height: 30px; padding: 0;
+  display: grid; place-items: center;
+  border: 1px solid var(--rule); border-radius: 50%;
+  background: transparent; color: var(--muted); cursor: pointer;
+  transition: color .18s, border-color .18s, background .18s;
+}
+.icon-button svg { width: 17px; height: 17px; }
+.icon-button:hover, .icon-button[aria-expanded="true"] {
+  color: var(--live); border-color: rgba(231, 189, 79, .38); background: var(--live-soft);
+}
+.sound-panel {
+  position: absolute; z-index: 25; right: 0; top: calc(100% + 8px);
+  width: 236px; padding: 13px 14px 12px;
+  display: grid; gap: 9px;
+  border: 1px solid var(--rule-2); border-radius: 14px;
+  background: rgba(20, 24, 21, .985);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .5);
+}
+.sound-panel[hidden] { display: none; }
+.sound-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: var(--t-body); color: var(--ink);
+}
+.sound-row output { font-family: var(--mono); font-size: var(--t-micro); color: var(--muted); }
+.sound-row small { display: block; margin-top: 1px; font-size: var(--t-micro); color: var(--faint); }
+.switch-row { padding-top: 9px; border-top: 1px solid var(--rule); cursor: pointer; }
+
+/* The slider fills gold up to its value; --fill is kept in step by the script. */
+.volume {
+  width: 100%; height: 18px; margin: 0;
+  appearance: none; background: transparent; cursor: pointer;
+}
+.volume::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 99px;
+  background: linear-gradient(90deg, var(--live) var(--fill, 100%), rgba(255, 255, 255, .1) var(--fill, 100%));
+}
+.volume::-webkit-slider-thumb {
+  appearance: none; width: 14px; height: 14px; margin-top: -5px;
+  border: 0; border-radius: 50%; background: var(--ink);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .45);
+}
+.volume:focus-visible { outline: 2px solid var(--live); outline-offset: 3px; border-radius: 4px; }
+
+.switch {
+  width: 34px; height: 20px; flex: 0 0 auto; margin: 0; position: relative;
+  appearance: none; border-radius: 99px; cursor: pointer;
+  background: rgba(255, 255, 255, .12);
+  transition: background .18s;
+}
+.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--ink);
+  transition: transform .18s;
+}
+.switch:checked { background: var(--live); }
+.switch:checked::after { transform: translateX(14px); background: var(--live-ink); }
+.switch:focus-visible { outline: 2px solid var(--live); outline-offset: 2px; }
 .status i {
   width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%;
   background: currentColor; opacity: .55; transition: .25s;
@@ -366,6 +429,19 @@ main {
 /* ------------------------------------------------------------- timeline */
 .timeline { margin-top: 13px; }
 
+/* The strip holding the song map or the rail. Its padding widens the target
+   for a click that jumps to that point, without moving anything visually. */
+.scrub { position: relative; padding: 7px 0; margin: -7px 0; }
+.scrub[data-seekable="true"] { cursor: pointer; }
+.seek-tip {
+  position: absolute; bottom: calc(100% - 2px); transform: translateX(-50%);
+  padding: 2px 6px; border-radius: 6px;
+  background: var(--panel-3); color: var(--ink);
+  font-family: var(--mono); font-size: var(--t-micro); line-height: 1.4;
+  pointer-events: none; white-space: nowrap;
+}
+.seek-tip[hidden] { display: none; }
+
 /* On stem tracks the song map replaces the rail: the revealed stem's content
    across the whole track, painted gold wherever the typist brought it in. */
 .song-map { display: block; width: 100%; height: 26px; }
@@ -407,6 +483,15 @@ main {
   font-size: 10px; font-weight: 600;
   letter-spacing: .07em; text-transform: uppercase; color: inherit;
 }
+
+/* Drawn icons rather than text glyphs, which every font draws differently. */
+.transport-btn .icon { width: 19px; height: 19px; }
+.play-btn .icon { width: 22px; height: 22px; }
+.order-btn .icon { width: 17px; height: 17px; }
+.play-btn[data-icon="play"] .icon-pause,
+.play-btn[data-icon="pause"] .icon-play,
+.order-btn[data-icon="sequence"] .icon-shuffle,
+.order-btn[data-icon="shuffle"] .icon-sequence { display: none; }
 
 /* --------------------------------------------------------------- rhythm */
 .rhythm { display: flex; align-items: center; gap: 13px; padding: 11px 15px; min-height: 64px; }
@@ -544,10 +629,22 @@ main {
   box-shadow: 0 0 0 4px rgba(231, 189, 79, .1);
 }
 
-.empty-library { min-height: 72px; display: grid; place-items: center; align-content: center; gap: 2px; color: var(--faint); }
+/* Shown under the demo until the listener adds music of their own, directly
+   below it rather than at the foot of the panel. */
+.library:has(.empty-library:not([hidden])) #list { flex: 0 0 auto; }
+.empty-library {
+  display: grid; justify-items: start; gap: 6px;
+  margin: 8px 7px 2px; padding: 12px 13px;
+  border: 1px dashed var(--rule-2); border-radius: var(--r-md);
+  color: var(--muted);
+}
 .empty-library[hidden] { display: none; }
-.empty-library span { font-size: 20px; }
-.empty-library p { margin: 0; font-size: var(--t-micro); }
+.empty-library b { font-size: var(--t-body); color: var(--ink); }
+.empty-library p { margin: 0; font-size: var(--t-micro); line-height: 1.5; }
+.empty-library .import-button { font-family: var(--display); font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+
+/* A best take, in the gold that marks what the typist did. */
+#list li small .best { margin-left: 6px; font-style: normal; color: var(--live); }
 
 /* ----------------------------------------------------------- help panel */
 .import-help {

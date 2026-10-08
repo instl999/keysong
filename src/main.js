@@ -4,7 +4,7 @@ import { Piano } from './engine/piano.js';
 import { TypingSensor } from './engine/typing-sensor.js';
 import { Arranger } from './engine/state-model.js';
 import { Player } from './engine/player.js';
-import { Library } from './library/library.js';
+import { Library, hasStems, stemRoles } from './library/library.js';
 import { Backing } from './engine/backing.js';
 import { Soloist } from './engine/soloist.js';
 import { detectKeyAsync, toAnalysisSamples, ANALYSIS_RATE } from './engine/keydetect.js';
@@ -13,6 +13,7 @@ import { Mixer, MODES, ANCHOR_ROLE, availableModes, foregroundRoles } from './en
 import { Touch } from './engine/touch.js';
 import { analyzeStems } from './engine/track-analysis.js';
 import { Take, BestTakes, CUE_LEAD } from './engine/take.js';
+import { renderDemo } from './engine/demo.js';
 import { SongMap } from './ui/song-map.js';
 
 const $ = (id) => document.getElementById(id);
@@ -26,13 +27,14 @@ const el = {
   powerHeadline: $('powerHeadline'),
   powerHint: $('powerHint'),
   playPause: $('playPause'),
-  playIcon: $('playIcon'),
   next: $('next'),
   order: $('order'),
   orderLabel: $('orderLabel'),
   npTitle: $('npTitle'),
   npComposer: $('npComposer'),
   sourceTag: $('sourceTag'),
+  scrub: $('scrub'),
+  seekTip: $('seekTip'),
   rail: $('rail'),
   trackProgress: $('trackProgress'),
   trackTime: $('trackTime'),
@@ -51,6 +53,13 @@ const el = {
   statusText: $('statusText'),
   list: $('list'),
   emptyLibrary: $('emptyLibrary'),
+  emptyLibraryText: $('emptyLibraryText'),
+  emptyLibraryAction: $('emptyLibraryAction'),
+  soundButton: $('soundButton'),
+  soundPanel: $('soundPanel'),
+  volume: $('volume'),
+  volumeValue: $('volumeValue'),
+  clicks: $('clicks'),
   toast: $('toast'),
   dropzone: $('dropzone'),
   platformLabel: $('platformLabel'),
@@ -66,6 +75,8 @@ if (!desktop?.isDesktop) {
   $('pickDir').title = 'Import a music folder';
   $('pickDir').setAttribute('aria-label', 'Import a music folder');
   $('importHelp').querySelector('.help-title small').textContent = 'Choose a folder manually in browser preview';
+  el.emptyLibraryText.textContent = 'Drop a song folder here, or import one. Songs separated into Vocals and Instrumental stems let your typing sing.';
+  el.emptyLibraryAction.textContent = 'Import Folder';
 }
 
 const piano = new Piano();
@@ -101,6 +112,13 @@ let libraryReady = false;
 let pendingMusicResource = null;
 let powerTransition = false;
 let shuffleDeck = [];
+
+// Sound. Every engine plays into one gain, so a single slider sets the music
+// level; key clicks can be switched off on their own.
+let output = null;
+let volume = Number(localStorage.getItem('keysong:volume') ?? 100);
+if (!Number.isFinite(volume)) volume = 100;
+let clicks = localStorage.getItem('keysong:clicks') !== 'off';
 
 // Performance feedback for stem tracks. The analysis arrives shortly after a
 // track starts playing; until it does, the stems simply follow typing.
@@ -293,7 +311,7 @@ function updatePowerUi() {
   el.app.dataset.enabled = String(enabled);
   el.app.dataset.playing = String(isPlaying);
   el.power.setAttribute('aria-pressed', String(enabled));
-  el.playIcon.textContent = isPlaying ? 'Ⅱ' : '▶';
+  el.playPause.dataset.icon = isPlaying ? 'pause' : 'play';
   el.playPause.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
   el.playPause.title = isPlaying ? 'Pause' : 'Play';
 
@@ -356,6 +374,35 @@ function updateProgress() {
 
 async function ensureAudio() {
   await piano.init(() => {});
+  if (output) return;
+  // The one place the whole app meets the speakers, so volume is one gain.
+  output = piano.ctx.createGain();
+  output.gain.value = volumeGain(volume);
+  output.connect(piano.ctx.destination);
+  piano.connect(output);
+  piano.setVolume(volumeGain(volume));
+}
+
+/** Perceived loudness follows the square of the slider, not the slider itself. */
+const volumeGain = (percent) => (percent / 100) ** 2;
+
+function setVolume(percent, { save = true } = {}) {
+  volume = Math.min(100, Math.max(0, Math.round(percent)));
+  el.volume.value = String(volume);
+  el.volumeValue.textContent = `${volume}%`;
+  el.volume.style.setProperty('--fill', `${volume}%`);
+  if (output) {
+    output.gain.setTargetAtTime(volumeGain(volume), output.context.currentTime, 0.02);
+    piano.setVolume(volumeGain(volume));
+  }
+  if (save) localStorage.setItem('keysong:volume', String(volume));
+}
+
+function setClicks(on, { save = true } = {}) {
+  clicks = on;
+  el.clicks.checked = on;
+  if (touch) touch.enabled = on;
+  if (save) localStorage.setItem('keysong:clicks', on ? 'on' : 'off');
 }
 
 function stopCurrent() {
@@ -690,7 +737,7 @@ async function loadTrack(item, { autoplay = true } = {}) {
     stopCurrent();
     // Release whatever the previous engine was holding. Decoded stems alone can
     // be well over 100 MB, and nothing frees them if the deck is only stopped.
-    if (deck && !item.stemUrls) { deck.unload(); mixer = null; }
+    if (deck && !hasStems(item)) { deck.unload(); mixer = null; }
     if (backing && !item.audioUrl) backing.unload();
     current = item;
     loadedItemId = null;
@@ -708,23 +755,31 @@ async function loadTrack(item, { autoplay = true } = {}) {
     }
     const piece = await library.load(item);
 
-    if (item.stemUrls) {
+    if (hasStems(item)) {
       currentEngine = 'stems';
-      deck = deck || new StemDeck(piano.ctx);
-      touch = touch || new Touch(piano.ctx);
-      const roles = Object.keys(item.stemUrls);
-      // Fetch every stem at once; the decode inside deck.load() also overlaps.
-      let fetched = 0;
-      const buffers = Object.fromEntries(await Promise.all(roles.map(async (role) => {
-        const response = await fetch(item.stemUrls[role]);
-        if (!response.ok) throw new Error(`Stem loading failed: ${response.status}`);
-        const data = await response.arrayBuffer();
-        el.npComposer.textContent = `Loaded stem ${++fetched}/${roles.length}`;
-        return [role, data];
-      })));
-      await deck.load(buffers, (progress) => {
-        el.npComposer.textContent = `Decoding ${Math.round(progress * 100)}%`;
-      });
+      deck = deck || new StemDeck(piano.ctx, output);
+      if (!touch) {
+        touch = new Touch(piano.ctx, output);
+        touch.enabled = clicks;
+      }
+      if (item.demo) {
+        el.npComposer.textContent = 'Composing the demo…';
+        deck.loadDecoded(await renderDemo(piano.ctx.sampleRate));
+      } else {
+        const roles = Object.keys(item.stemUrls);
+        // Fetch every stem at once; the decode inside deck.load() also overlaps.
+        let fetched = 0;
+        const buffers = Object.fromEntries(await Promise.all(roles.map(async (role) => {
+          const response = await fetch(item.stemUrls[role]);
+          if (!response.ok) throw new Error(`Stem loading failed: ${response.status}`);
+          const data = await response.arrayBuffer();
+          el.npComposer.textContent = `Loaded stem ${++fetched}/${roles.length}`;
+          return [role, data];
+        })));
+        await deck.load(buffers, (progress) => {
+          el.npComposer.textContent = `Decoding ${Math.round(progress * 100)}%`;
+        });
+      }
       mixer = new Mixer(deck);
       mixer.setRefRate(refRate);
       mixer.setMode(followStemMode(deck.roles));
@@ -735,13 +790,13 @@ async function loadTrack(item, { autoplay = true } = {}) {
       stemStartOffset = deck.audibleStart();
       renderMixer();
       el.npComposer.textContent = stemModeHint(mixer.mode, deck.roles);
-      setSourceTag('Typing stems');
+      setSourceTag(item.demo ? 'Demo' : 'Typing stems');
       if (autoplay) deck.play(stemStartOffset);
       startAnalysis(item);
       startFrameLoop();
     } else if (item.audioUrl) {
       currentEngine = 'audio';
-      backing = backing || new Backing(piano.ctx);
+      backing = backing || new Backing(piano.ctx, output);
       soloist = soloist || new Soloist(piano);
       piano.ensureSampler();   // This engine performs on the piano, so pay for it now.
       el.npComposer.textContent = 'Loading audio…';
@@ -877,7 +932,7 @@ async function setEnabled(next) {
 function renderOrder() {
   const shuffle = orderMode === 'shuffle';
   el.orderLabel.textContent = shuffle ? 'Shuffle' : 'Sequence';
-  el.order.querySelector('.order-icon').textContent = shuffle ? '⤨' : '⇥';
+  el.order.dataset.icon = shuffle ? 'shuffle' : 'sequence';
   el.order.title = shuffle ? 'Shuffle playback' : 'Sequence playback';
   el.order.setAttribute('aria-label', shuffle ? 'Shuffle playback' : 'Sequence playback');
 }
@@ -891,7 +946,8 @@ function updateListSelection() {
 
 function renderList() {
   el.list.replaceChildren();
-  el.emptyLibrary.hidden = queue.length > 0;
+  // Until the listener adds music of their own, say how, under the demo.
+  el.emptyLibrary.hidden = queue.some((item) => !item.demo);
   const fragment = document.createDocumentFragment();
   queue.forEach((item, index) => {
     const li = document.createElement('li');
@@ -909,7 +965,8 @@ function renderList() {
     const name = document.createElement('b');
     name.textContent = item.title;
     const source = document.createElement('small');
-    source.textContent = item.stemUrls ? stemsLabel(item) : item.audioUrl ? 'Audio' : 'MIDI';
+    if (hasStems(item)) source.append(...stemsLabel(item));
+    else source.textContent = item.audioUrl ? 'Audio' : 'MIDI';
     copy.append(name, source);
     const state = document.createElement('span');
     state.className = 'list-state';
@@ -919,10 +976,15 @@ function renderList() {
   el.list.appendChild(fragment);
 }
 
-/** "Typing stems", plus the best take on the stem this track would reveal. */
+/** What kind of entry this is, plus the best take on the stem it would reveal. */
 function stemsLabel(item) {
-  const best = bestTakes.get(bestKey(item, followStemMode(Object.keys(item.stemUrls))));
-  return best === null ? 'Typing stems' : `Typing stems · best ${percent(best)}`;
+  const kind = item.demo ? 'Built-in demo' : 'Typing stems';
+  const best = bestTakes.get(bestKey(item, followStemMode(stemRoles(item))));
+  if (best === null) return [kind];
+  const badge = document.createElement('em');
+  badge.className = 'best';
+  badge.textContent = `Best ${percent(best)}`;
+  return [kind, badge];
 }
 
 function chooseFromList(target) {
@@ -946,7 +1008,7 @@ function chooseFromList(target) {
 // keyboard activation, which reports no click count, keeps it.
 document.addEventListener('click', (event) => {
   if (event.detail === 0) return;
-  event.target.closest?.('button, [tabindex]')?.blur();
+  event.target.closest?.('button, input, [tabindex]')?.blur();
 });
 
 // One delegated pair of listeners instead of two per track.
@@ -984,6 +1046,76 @@ el.order.addEventListener('click', () => {
   showToast(orderMode === 'shuffle' ? 'Shuffle playback enabled' : 'Sequence playback enabled');
 });
 
+// ------------------------------------------------------------------ sound
+
+setVolume(volume, { save: false });
+setClicks(clicks, { save: false });
+
+function setSoundPanel(open) {
+  el.soundPanel.hidden = !open;
+  el.soundButton.setAttribute('aria-expanded', String(open));
+}
+
+/** A control set with the mouse lets go of focus, so typing cannot change it. */
+const releaseIfPointer = (input) => {
+  if (!input.matches(':focus-visible')) input.blur();
+};
+
+el.soundButton.addEventListener('click', () => setSoundPanel(el.soundPanel.hidden));
+el.volume.addEventListener('input', () => setVolume(Number(el.volume.value)));
+el.volume.addEventListener('change', () => releaseIfPointer(el.volume));
+el.clicks.addEventListener('change', () => {
+  setClicks(el.clicks.checked);
+  releaseIfPointer(el.clicks);
+});
+document.addEventListener('pointerdown', (event) => {
+  if (!el.soundPanel.hidden && !event.target.closest?.('.sound-wrap')) setSoundPanel(false);
+});
+
+// ------------------------------------------------------------------ seeking
+
+/** The stretch of the track the timeline spans, when the engine can jump in it. */
+function seekRange() {
+  if (currentEngine === 'stems' && deck?.duration) return { start: stemStartOffset, end: deck.duration };
+  if (currentEngine === 'audio' && backing?.el && backing.duration) return { start: 0, end: backing.duration };
+  return null;
+}
+
+function secondsAtPointer(event) {
+  const range = seekRange();
+  if (!range) return null;
+  const rect = el.scrub.getBoundingClientRect();
+  const share = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+  return { seconds: range.start + share * (range.end - range.start), x: share * rect.width, width: rect.width };
+}
+
+el.scrub.addEventListener('click', (event) => {
+  const point = secondsAtPointer(event);
+  if (!point) return;
+  if (currentEngine === 'stems') {
+    deck.seek(point.seconds);
+    // The beat ring resumes from here instead of pulsing for every beat skipped.
+    if (mixer?.beats) lastBeatIndex = mixer.beats.indexAt(point.seconds);
+    songMap.draw(deck.position);
+  } else {
+    backing.seek(point.seconds);
+  }
+  updateProgress();
+});
+
+el.scrub.addEventListener('pointermove', (event) => {
+  const point = secondsAtPointer(event);
+  el.scrub.dataset.seekable = String(Boolean(point));
+  el.seekTip.hidden = !point;
+  if (!point) return;
+  const offset = currentEngine === 'stems' ? stemStartOffset : 0;
+  el.seekTip.textContent = formatTime(point.seconds - offset);
+  el.seekTip.style.left = `${Math.min(point.width - 18, Math.max(18, point.x))}px`;
+});
+el.scrub.addEventListener('pointerleave', () => { el.seekTip.hidden = true; });
+
+el.emptyLibraryAction.addEventListener('click', () => $('pickDir').click());
+
 $('importHelpButton').addEventListener('click', () => {
   const wrap = $('importHelpButton').closest('.help-wrap');
   const open = !wrap.classList.contains('open');
@@ -1006,6 +1138,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
   helpWrap.classList.remove('open');
   $('importHelpButton').setAttribute('aria-expanded', 'false');
+  setSoundPanel(false);
 });
 
 $('pickDir').addEventListener('click', async () => {
@@ -1114,7 +1247,13 @@ setInterval(() => {
 }, 66);
 
 library.onChange = () => {
-  queue = library.items;
+  // The demo always sits below the listener's own music.
+  queue = [...library.items.filter((item) => !item.demo), ...library.items.filter((item) => item.demo)];
+  // A song on standby whose files were removed gives way to the first song left.
+  if (current && current.id !== loadedItemId && !isLoading && !queue.some((item) => item.id === current.id)) {
+    if (queue.length) showStandby(queue[0]);
+    else current = null;
+  }
   if (current) current = queue.find((item) => item.id === current.id) || current;
   if (!current && queue.length) current = queue[0];
   shuffleDeck = [];

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupMusicRecords, Library } from '../src/library/library.js';
+import { groupMusicRecords, Library, demoItem, hasStems, stemRoles } from '../src/library/library.js';
+import { availableModes } from '../src/engine/gate.js';
 
 const rec = (name, parent = '') => ({ file: { name }, parent });
 const byTitle = (buckets) => Object.fromEntries(buckets.map((b) => [b.title, b]));
@@ -139,4 +140,20 @@ test('the first file of a role wins rather than the last', () => {
 test('an empty record list yields no buckets', () => {
   assert.deepEqual(groupMusicRecords([]), []);
   assert.deepEqual(byTitle(groupMusicRecords([])), {});
+});
+
+test('the demo is a stem entry with no files, playable in every mode', () => {
+  const demo = demoItem();
+  assert.equal(demo.source, 'demo');
+  assert.equal(hasStems(demo), true);
+  assert.equal(demo.stemUrls, undefined, 'its stems are synthesized, not fetched');
+  assert.deepEqual(availableModes(stemRoles(demo)).sort(), ['bass', 'drums', 'instrument', 'vocal']);
+});
+
+test('stem roles come from the files of a separated song', () => {
+  const item = { stemUrls: { vocals: 'x://v', instrumental: 'x://i' } };
+  assert.equal(hasStems(item), true);
+  assert.deepEqual(stemRoles(item).sort(), ['instrumental', 'vocals']);
+  assert.equal(hasStems({ audioUrl: 'x://a' }), false);
+  assert.deepEqual(stemRoles({ audioUrl: 'x://a' }), []);
 });

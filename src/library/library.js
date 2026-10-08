@@ -1,6 +1,7 @@
 import { get, set, del } from 'idb-keyval';
 import { roleFromMarker, roleFromFileName, ROLE_SUFFIX_RE } from '../shared/stem-roles.js';
 import { availableModes } from '../engine/gate.js';
+import { DEMO } from '../engine/demo-score.js';
 
 const DIR_KEY = 'keysong:music-dir';
 // Keys written before the rename from Cadence, newest first.
@@ -82,6 +83,27 @@ export function groupMusicRecords(records) {
   return [...buckets.values()];
 }
 
+/**
+ * The synthesized demo, so there is always something to play. It has no
+ * files: the player renders its stems when it is chosen.
+ */
+export function demoItem() {
+  return {
+    id: DEMO.id,
+    title: DEMO.title,
+    composer: DEMO.composer,
+    source: 'demo',
+    demo: true,
+    roles: [...DEMO.roles],
+  };
+}
+
+/** Whether an entry plays as synchronized stems that typing reveals. */
+export const hasStems = (item) => Boolean(item?.stemUrls || item?.demo);
+
+/** The stem roles an entry carries. */
+export const stemRoles = (item) => (item?.demo ? item.roles : Object.keys(item?.stemUrls ?? {}));
+
 /** Library sources include built-in tracks, a selected folder, and dropped files. */
 export class Library {
   constructor() {
@@ -96,6 +118,7 @@ export class Library {
   async init() {
     await this.loadBuiltins();
     await this.restoreFolder();
+    this.items.push(demoItem());
     this.onChange();
   }
 

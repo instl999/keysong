@@ -53,6 +53,8 @@ src/
     presence.js         Where a stem has content, and its phrases
     beats.js            Onset envelope, tempo, and beat tracking
     take.js             Scoring one play-through; best scores
+    demo-score.js       The built-in demo's arrangement, as plain data
+    demo.js             Synthesizes the demo's four stems offline
     track-analysis.js   Runs presence and beat analysis for a loaded stem set
   ui/song-map.js      The song map canvas
   shared/             Rules used by both the renderer and the build scripts
@@ -204,6 +206,16 @@ With a usable `BeatGrid`, `Mixer.strike()` holds the gate at least until the nex
 ### Drawing
 
 `SongMap` redraws about ten times a second from the take's arrays. The beat ring is triggered from `requestAnimationFrame` by comparing the heard position, the deck position minus `outputLatency` and `baseLatency`, against the grid. Both are visual only and pause with the window. Scoring never depends on them.
+
+### Output and Volume
+
+Every engine plays into one native `GainNode` created in `ensureAudio()`: the stem deck, the audio backing, the key clicks, and the sampled piano (through smplr's `destination` option). The slider sets that gain on a squared curve. Tone.js wraps its nodes, and they cannot connect to a native node, so the synth piano stays on Tone's destination and `Piano.setVolume()` matches its level.
+
+### The Built-In Demo
+
+`demo-score.js` holds the arrangement as data: *Ode to Joy* (public domain) with chords, bass, drums, and an arpeggio, laid out as intro, verse, break, verse, and outro at 100 BPM. `tests/demo-score.test.js` keeps it in key, on its chords, and silent in the break. `demo.js` renders the four stems with one `OfflineAudioContext` each.
+
+Each part is a few long-lived voices whose pitch and level are automated note by note. An offline graph processes every connected node for the whole render, so the first version, with a node per note, took fifteen seconds; voices take about two. Levels keep the summed stems near −3.5 dBFS at peak. The demo has no files: `StemDeck.loadDecoded()` takes its buffers directly, and everything after that, including analysis and feedback, is the ordinary stem path.
 
 ## 9. Build and Release
 

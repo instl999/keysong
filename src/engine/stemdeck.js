@@ -8,10 +8,11 @@
  * also behave naturally because a silent vocal stem remains silent when opened.
  */
 export class StemDeck {
-  constructor(ctx) {
+  /** @param output Where the mix goes: the app's volume stage, or the speakers. */
+  constructor(ctx, output = ctx.destination) {
     this.ctx = ctx;
     this.master = ctx.createGain();
-    this.master.connect(ctx.destination);
+    this.master.connect(output);
     this.stems = new Map();   // role -> { buffer, gain, src }
     this.duration = 0;
     this.playing = false;
@@ -34,7 +35,16 @@ export class StemDeck {
       onProgress(++done / roles.length, role);
       return [role, buffer];
     }));
+    return this._swapIn(decoded);
+  }
 
+  /** Load stems that are already audio, such as the synthesized demo. */
+  loadDecoded(buffers) {
+    this.stop();
+    return this._swapIn([...buffers]);
+  }
+
+  _swapIn(decoded) {
     // Swap in only once every stem decoded, so a mid-load failure cannot leave
     // the deck holding a partial mix.
     for (const s of this.stems.values()) s.gain.disconnect();
@@ -103,6 +113,12 @@ export class StemDeck {
     this._stopSources();
     this._startOffset = pos;
     this.playing = false;
+  }
+
+  /** Jump to `offset` seconds, still playing if it was. */
+  seek(offset) {
+    if (this.playing) this.play(offset);
+    else this._startOffset = Math.max(0, Math.min(offset, this.duration));
   }
 
   stop() {

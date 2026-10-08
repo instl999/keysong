@@ -11,6 +11,7 @@ export class Piano {
     this.ctx = null;
     this.sampler = null;
     this.synth = null;
+    this.destination = null;   // Where both pianos play; the speakers until connect().
     this._samplerPromise = null;
   }
 
@@ -40,6 +41,21 @@ export class Piano {
   }
 
   /**
+   * Play the sampled piano, which loads later, through `node` instead of
+   * straight to the speakers, so it follows the app's volume. The synth stays
+   * on Tone's destination: Tone wraps its nodes, and they cannot connect to a
+   * plain AudioNode, so its level is set with setVolume() instead.
+   */
+  connect(node) {
+    this.destination = node;
+  }
+
+  /** Match the synth to the app's volume; `gain` is linear, 0..1. */
+  setVolume(gain) {
+    Tone.getDestination().volume.value = gain > 0 ? 20 * Math.log10(gain) : -Infinity;
+  }
+
+  /**
    * Upgrade to the sampled piano, in the background, while the synth stays ready.
    *
    * Stem playback never sounds the piano, so pulling several megabytes of
@@ -56,7 +72,7 @@ export class Piano {
     try {
       // Imported here so smplr stays out of the initial chunk.
       const { SplendidGrandPiano, Reverb } = await import('smplr');
-      const piano = new SplendidGrandPiano(ctx, { volume: 100 });
+      const piano = new SplendidGrandPiano(ctx, { volume: 100, destination: this.destination ?? ctx.destination });
       await Promise.race([
         piano.load,
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000)),

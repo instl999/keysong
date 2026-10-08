@@ -22,22 +22,27 @@ Keysong was called Cadence up to v0.1.0.
 
 1. Keep `Keysong-version-Windows.exe` and the `Music Resources` folder in the same directory.
 2. Run Keysong. If `Music Resources` is missing, the app creates it beside the executable with an example folder and instructions.
-3. Select a song in the playlist, or import your own music first.
+3. Select a song in the playlist, or import your own music first. To try Keysong straight away, choose the built-in demo, **Ode to Joy**.
 4. Select **Enable**. Large WAV files may take a few seconds to decode on first playback.
 5. Switch to any application and start typing. The input rhythm display indicates activity.
-6. Use the player controls to pause/resume, move to the next track, or switch between sequence and shuffle.
+6. Use the player controls to pause/resume, move to the next track, or switch between sequence and shuffle. Click anywhere on the song map or progress bar to jump there.
 7. Select **Disable** when finished. Exiting Keysong also stops the global hook.
+
+### The Built-In Demo
+
+**Ode to Joy** is always at the end of the playlist. Beethoven's melody is in the public domain; the arrangement is Keysong's own, synthesized on the spot in about two seconds, so it needs no download and no files. The melody plays the vocal part, with drums, bass, and chords as the other three stems. It has two sung verses, an instrumental break, and a steady 100 BPM beat, so it shows every part of the feedback. Until you add songs of your own, a short guide under it explains how.
 
 ### Controls
 
 | Control | Purpose | Important detail |
 |---|---|---|
 | Enable / Disable | Starts or stops Windows-wide keyboard monitoring | Disable does not remove music files |
+| Sound (speaker icon) | Sets the music volume and switches the key click on or off | Both are saved locally |
 | Play / Pause | Controls the current song | Monitoring may remain enabled while paused |
 | Next | Selects the next song | Shuffle chooses another random song |
 | Sequence / Shuffle | Controls automatic track order | The choice is saved locally |
 | Stems mixer | Chooses which stem responds to typing | Gold row follows your typing; teal rows always play |
-| Song map | Replaces the progress bar on stem tracks | Shows where the stem you play has content; gold marks what you brought in |
+| Song map | Replaces the progress bar on stem tracks | Shows where the stem you play has content; gold marks what you brought in. Click to jump |
 | Playlist item | Selects a song immediately | If playback is active, the new song starts automatically; the best score shows under the title |
 | Music Resource | Opens the fixed resource directory | The desktop app watches it for changes |
 | `?` | Shows the folder and UVR quick guide | Available by hover, keyboard focus, or click |

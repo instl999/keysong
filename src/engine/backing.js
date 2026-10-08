@@ -6,12 +6,13 @@
  * timing error must remain below a sixteenth note for responsive note selection.
  */
 export class Backing {
-  constructor(ctx) {
+  /** @param output Where the track goes: the app's volume stage, or the speakers. */
+  constructor(ctx, output = ctx.destination) {
     this.ctx = ctx;
     this.el = null;
     this.src = null;
     this.gain = ctx.createGain();
-    this.gain.connect(ctx.destination);
+    this.gain.connect(output);
     this.duckGain = 1;
     this.volume = 0.75;
     this._anchorCtx = 0;   // Context time at playback start.
@@ -100,6 +101,14 @@ export class Backing {
     clearInterval(this._reanchor);
     if (this.el) this.el.pause();
     this.playing = false;
+  }
+
+  /** Jump to `seconds`, playing on from there if it was playing. */
+  seek(seconds) {
+    if (!this.el) return;
+    this.el.currentTime = Math.max(0, Math.min(seconds, this.duration || 0));
+    this._anchorCtx = this.ctx.currentTime;
+    this._anchorPos = this.el.currentTime;
   }
 
   /** Current track position in seconds, derived from the AudioContext clock. */
