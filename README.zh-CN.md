@@ -1,5 +1,13 @@
 # Keysong
 
+<!-- repository-catalog:start -->
+**分类：音乐与音频工具** · [同类仓库](https://github.com/instl999?tab=repositories&q=topic%3Aaudio-tools)
+
+Windows 11 打字音乐应用：打字时播放选定音轨，提供节拍与演奏反馈。
+
+[English](README.md)
+<!-- repository-catalog:end -->
+
 [English](README.md) | 简体中文
 
 *让你的按键唱出歌曲。* Keysong 让任何人都能跟着喜爱的音乐一起演奏，无需乐器基础。将歌曲分离成不同音轨后，你选择的声部（通常是人声）只会在打字时发声。持续打字，歌曲就会继续唱；停下输入，它便等待你的下一次敲击。

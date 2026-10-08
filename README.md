@@ -1,5 +1,13 @@
 # Keysong
 
+<!-- repository-catalog:start -->
+**Category: Music and audio tools** · [Repositories in this category](https://github.com/instl999?tab=repositories&q=topic%3Aaudio-tools)
+
+A Windows 11 typing-driven music app that reveals a selected stem while you type and provides beat and performance feedback.
+
+[简体中文](README.zh-CN.md)
+<!-- repository-catalog:end -->
+
 English | [简体中文](README.zh-CN.md)
 
 *Your keys sing the song.* Keysong lets anyone play along with the music they love, with no instrument experience needed. Separate a song into stems, and the part you choose, usually the vocals, only sounds while you type. Keep typing and the song sings. Stop and it waits for you.
